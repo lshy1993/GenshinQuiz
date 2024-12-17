@@ -1,3 +1,13 @@
+CREATE DATABASE IF NOT EXISTS genshinquiz;
+
+\c genshinquiz;
+
+CREATE TABLE IF NOT EXISTS quizzes (
+  id SERIAL PRIMARY KEY,
+  question VARCHAR(255) NOT NULL,
+  answer VARCHAR(255) NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   name VARCHAR(100),

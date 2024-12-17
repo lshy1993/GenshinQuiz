@@ -4,9 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "bun dev",
-    "build": "bun build",
-    "preview": "bun preview",
+    "dev": "bun vite",
+    "build": "bun vite build",
     "format": "bun run biome format",
     "lint": "bun run biome lint"
   },

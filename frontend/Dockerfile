@@ -14,4 +14,4 @@ RUN bun install
 COPY . .
 
 # 启动开发服务器
-CMD ["bun", "dev"]
+CMD ["bun", "run", "dev"]

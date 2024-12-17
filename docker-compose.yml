@@ -1,6 +1,7 @@
 version: '3.8'
 services:
   frontend:
+    container_name: frontend
     build:
       context: ./frontend
     ports:
@@ -14,29 +15,48 @@ services:
       - backend
 
   backend:
+    container_name: server
     build:
       context: ./backend
     ports:
-      - "5000:5000"
+      - "3082:3082"
     volumes:
       - ./backend:/app
       - /app/node_modules
-    environment:
-      - DATABASE_URL=postgres://postgres:password@database:5432/mydb
     depends_on:
       - database
+    environment:
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_HOST=database
+      - DB_PORT=5432
+      - DB_NAME=genshinquiz
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:3082/"]
+      interval: 30s
+      retries: 3
+      timeout: 10s
+      start_period: 5s
+    command: /bin/sh -c "npm install && node index.js"
 
   database:
+    container_name: postgres
     image: postgres:14
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: mydb
-    volumes:
-      - db_data:/var/lib/postgresql/data
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      POSTGRES_DB: genshinquiz
+    # healthcheck:
+    #   test: ["CMD", "pg_isready", "-U", "postgres", "-d", "genshinquiz", "-h", "localhost", "-p", "5432"]
+    #   interval: 30s
+    #   retries: 5
+    #   timeout: 5s
+    #   start_period: 10s
 
 volumes:
   db_data:
