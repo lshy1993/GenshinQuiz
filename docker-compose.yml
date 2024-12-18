@@ -1,5 +1,12 @@
 version: '3.8'
 services:
+  swagger-editor:
+    image: swaggerapi/swagger-editor
+    ports:
+      - "3020:8080"
+    volumes:
+      - ./openapi:/mnt/swagger
+
   frontend:
     container_name: frontend
     build:

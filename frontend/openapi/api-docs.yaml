@@ -1,13 +1,11 @@
 openapi: 3.0.0
 info:
-  title: Simple API
-  description: A simple API example
+  title: GenshinQuiz API
+  description: API for Quiz system
   version: 1.0.0
-
 servers:
-  - url: http://localhost:3082/api
+  - url: 'http://localhost:3082/api'
     description: Local server
-
 paths:
   /greet:
     get:
@@ -24,4 +22,150 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "Hello, world!"
+                    example: 'Hello, world!'
+  /random:
+    get:
+      summary: GET random quiz
+      description: get one random quiz
+      operationId: get-random-quiz
+      responses:
+        '200':
+          description: OK
+          headers: {}
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  quiz:
+                    $ref: '#/components/schemas/quiz'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /quizzes:
+    get:
+      summary: GET all quizzes
+      description: list all quizzes
+      operationId: get-quizs
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - quizzes
+                  - count
+                properties:
+                  quizzes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/quiz'
+                  count:
+                    type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      parameters:
+        - schema:
+            type: number
+          in: query
+          name: page
+          description: pagination
+        - schema:
+            type: string
+          in: query
+          name: tags
+          description: tags
+        - schema:
+            type: string
+          in: query
+          name: authors
+          description: authors
+  '/quiz/{quizid}/':
+    parameters:
+      - schema:
+          type: string
+        name: quizid
+        in: path
+        required: true
+    get:
+      summary: GET a detail quiz info by id
+      description: get quiz by id
+      operationId: get-quiz-quizid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  quiz:
+                    $ref: '#/components/schemas/quiz'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+components:
+  schemas:
+    quiz:
+      title: quiz
+      type: object
+      required:
+        - id
+        - quiz
+        - options
+        - creator
+        - creatAt
+        - updateAt
+        - answer
+      properties:
+        id:
+          type: string
+          format: uuid
+        quiz:
+          type: string
+        options:
+          type: array
+          items:
+            type: string
+        creator:
+          type: string
+          format: uuid
+        creatAt:
+          type: string
+          format: date-time
+        updateAt:
+          type: string
+          format: date-time
+        multiple:
+          type: boolean
+        answer:
+          type: array
+          items:
+            type: string
+  responses:
+    BadRequest:
+      description: Bad Request (400)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: Invalid request parameters.
+    Unauthorized:
+      description: Unauthorized (401)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: Unauthorized access.
