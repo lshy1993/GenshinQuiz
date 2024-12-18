@@ -9,10 +9,12 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+      - ./openapi:/app/openapi # 挂载 openapi 文件夹
     environment:
       - CHOKIDAR_USEPOLLING=true
     depends_on:
       - backend
+    command: /bin/sh -c "bun run orval && bun run dev" # 运行 Orval 生成代码然后启动 Bun 开发服务器
 
   backend:
     container_name: server
@@ -23,6 +25,7 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
+      - ./openapi:/app/openapi # 将 openapi 文件夹挂载到容器内的 /app/openapi
     depends_on:
       - database
     environment:
@@ -32,7 +35,7 @@ services:
       - DB_PORT=5432
       - DB_NAME=genshinquiz
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:3082/"]
+      test: [ "CMD", "curl", "--fail", "http://localhost:3082/" ]
       interval: 30s
       retries: 3
       timeout: 10s

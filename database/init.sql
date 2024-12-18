@@ -1,4 +1,4 @@
-CREATE DATABASE IF NOT EXISTS genshinquiz;
+CREATE DATABASE genshinquiz;
 
 \c genshinquiz;
 

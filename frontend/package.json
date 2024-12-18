@@ -7,12 +7,14 @@
     "dev": "bun vite",
     "build": "bun vite build",
     "format": "bun run biome format",
-    "lint": "bun run biome lint"
+    "lint": "bun run biome lint",
+    "orval": "orval"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@mui/material": "^6.2.1",
+    "orval": "^7.3.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
