@@ -25,7 +25,7 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
-      - ./openapi:/app/openapi # 将 openapi 文件夹挂载到容器内的 /app/openapi
+      - ./frontend/openapi:/app/openapi # 将 openapi 文件夹挂载到容器内的 /app/openapi
     depends_on:
       - database
     environment:
