@@ -1,7 +1,7 @@
-version: '3.8'
 services:
   swagger-editor:
     image: swaggerapi/swagger-editor
+    platform: linux/amd64
     ports:
       - "3020:8080"
     volumes:
@@ -21,7 +21,7 @@ services:
       - CHOKIDAR_USEPOLLING=true
     depends_on:
       - backend
-    command: /bin/sh -c "bun run orval && bun run dev" # 运行 Orval 生成代码然后启动 Bun 开发服务器
+    command: /bin/sh -c "bunx orval --config orval.config.json && bun run dev" # 运行 Orval 生成代码然后启动 Bun 开发服务器
 
   backend:
     container_name: server
@@ -46,7 +46,7 @@ services:
       retries: 3
       timeout: 10s
       start_period: 5s
-    command: /bin/sh -c "npm install && node index.js"
+    command: /bin/sh -c "npm install && npm run db:migrate && node index.js"
 
   database:
     container_name: postgres

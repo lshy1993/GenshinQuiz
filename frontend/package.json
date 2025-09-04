@@ -8,7 +8,7 @@
     "build": "bun vite build",
     "format": "bunx biome format",
     "lint": "bunx biome lint",
-    "orval": "orval"
+    "orval": "bunx orval --config orval.config.json"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

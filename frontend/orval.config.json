@@ -1,0 +1,10 @@
+{
+  "api": {
+    "input": "./openapi/api-docs.yaml",
+    "output": {
+      "mode": "split",
+      "target": "./src/api",
+      "client": "axios"
+    }
+  }
+}
