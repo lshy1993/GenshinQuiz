@@ -5,7 +5,7 @@ services:
     ports:
       - "3020:8080"
     volumes:
-      - ./openapi:/mnt/swagger
+      - ./backend/openapi:/mnt/swagger
 
   frontend:
     container_name: frontend
@@ -16,7 +16,7 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
-      - ./openapi:/app/openapi # 挂载 openapi 文件夹
+      - ./backend/openapi:/app/openapi # 挂载 openapi 文件夹
     environment:
       - CHOKIDAR_USEPOLLING=true
     depends_on:
@@ -32,7 +32,6 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
-      - ./frontend/openapi:/app/openapi # 将 openapi 文件夹挂载到容器内的 /app/openapi
     depends_on:
       - database
     environment:
@@ -51,10 +50,9 @@ services:
 
   database:
     container_name: postgres
-    image: postgres:14
+    image: postgres:16
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
     environment:
