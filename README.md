@@ -1,15 +1,15 @@
 # GenshinQuiz - Genshin Impact Quiz Application
 # GenshinQuiz 原神知识问答
 
-A knowledge quiz application based on Genshin Impact, featuring a React frontend, Express API backend, and PostgreSQL database.
+A knowledge quiz application based on Genshin Impact, featuring a React frontend, Go API backend, and PostgreSQL database with OpenAPI specifications.
 
-一个基于原神的知识问答应用，包含前端React应用、后端Express API服务和PostgreSQL数据库。
+一个基于原神的知识问答应用，包含前端React应用、后端Go API服务和PostgreSQL数据库，使用OpenAPI规范。
 
 ## 🎯 Project Overview / 项目简介
 
-GenshinQuiz is a full-stack quiz application that allows players to test their knowledge of the Genshin Impact game. The project uses modern technology stack and supports Docker containerized deployment.
+GenshinQuiz is a full-stack quiz application that allows players to test their knowledge of the Genshin Impact game. The project uses modern technology stack with Go backend and supports Docker containerized deployment.
 
-GenshinQuiz 是一个全栈知识问答应用，让玩家可以测试自己对原神游戏的了解程度。项目采用现代化的技术栈，支持Docker容器化部署。
+GenshinQuiz 是一个全栈知识问答应用，让玩家可以测试自己对原神游戏的了解程度。项目采用现代化的技术栈和Go后端，支持Docker容器化部署。
 
 ## 🛠️ Tech Stack / 技术栈
 
@@ -20,13 +20,16 @@ GenshinQuiz 是一个全栈知识问答应用，让玩家可以测试自己对�
 - **Material-UI (MUI)** - UI Component Library / UI组件库
 - **Axios** - HTTP Client / HTTP客户端
 - **Bun** - Package Manager and Runtime / 包管理器和运行时
+- **Orval** - OpenAPI Code Generator / OpenAPI代码生成器
 
 ### Backend / 后端
-- **Node.js** - Runtime Environment / 运行环境
-- **Express** - Web Framework / Web框架
+- **Go 1.21** - Programming Language / 编程语言
+- **Go-Chi** - Web Framework / Web框架
 - **PostgreSQL** - Database / 数据库
-- **Knex.js** - SQL Query Builder & Migration Tool / SQL查询构建器和迁移工具
-- **Swagger** - API Documentation / API文档
+- **Go-Jet** - Type-safe SQL Query Builder / 类型安全的SQL查询构建器
+- **Goose** - Database Migration Tool / 数据库迁移工具
+- **OpenAPI 3.0** - API Specification / API规范
+- **oapi-codegen** - OpenAPI Code Generator / OpenAPI代码生成器
 
 ### Development Tools / 开发工具
 - **Docker & Docker Compose** - Containerization / 容器化
@@ -37,32 +40,47 @@ GenshinQuiz 是一个全栈知识问答应用，让玩家可以测试自己对�
 ## 📁 Project Structure / 项目结构
 
 ```
-GenshinQuiz/
-├── backend/                 # Backend Service / 后端服务
-│   ├── db/                 # Database Layer / 数据库层
-│   │   ├── migrations/     # Database Migrations / 数据库迁移
-│   │   ├── seeds/          # Database Seeds / 数据库种子
-│   │   └── index.js        # Database Connection / 数据库连接
-│   ├── models/             # Data Models / 数据模型
-│   │   ├── User.js         # User Model / 用户模型
-│   │   └── Quiz.js         # Quiz Model / 问答模型
-│   ├── index.js            # Entry File / 入口文件
-│   ├── knexfile.js         # Database Config / 数据库配置
-│   ├── swagger.js          # Swagger Configuration / Swagger配置
-│   ├── package.json        # Backend Dependencies / 后端依赖
-│   └── Dockerfile          # Backend Docker Config / 后端Docker配置
-├── frontend/               # Frontend Application / 前端应用
-│   ├── src/                # Source Code / 源代码
-│   │   ├── api/           # API Client / API客户端
-│   │   ├── assets/        # Static Assets / 静态资源
-│   │   ├── App.tsx        # Main App Component / 主应用组件
-│   │   └── main.tsx       # Application Entry / 应用入口
-│   ├── openapi/           # API Documentation / API文档
-│   ├── package.json       # Frontend Dependencies / 前端依赖
-│   └── Dockerfile         # Frontend Docker Config / 前端Docker配置
-├── docker-compose.yml     # Docker Compose Config / Docker编排配置
-└── biome.json            # Code Formatting Config / 代码格式化配置
+genshin-quiz/
+├── backend/                # Go Backend API / Go后端API
+│   ├── api/               # OpenAPI Specifications / OpenAPI规范
+│   ├── internal/          # Private Application Code / 私有应用代码
+│   │   ├── config/       # Configuration / 配置
+│   │   ├── database/     # Database Layer / 数据库层
+│   │   ├── handlers/     # HTTP Handlers / HTTP处理器
+│   │   ├── models/       # Data Models / 数据模型
+│   │   ├── repository/   # Data Access Layer / 数据访问层
+│   │   └── services/     # Business Logic / 业务逻辑
+│   ├── migrations/       # Database Migrations / 数据库迁移
+│   ├── scripts/          # Utility Scripts / 实用脚本
+│   ├── main.go           # Application Entry / 应用入口
+│   ├── go.mod            # Go Module Definition / Go模块定义
+│   └── Dockerfile        # Backend Docker Config / 后端Docker配置
+├── frontend/             # Frontend Application / 前端应用
+│   ├── src/              # Source Code / 源代码
+│   │   ├── api/         # Generated API Client / 生成的API客户端
+│   │   ├── assets/      # Static Assets / 静态资源
+│   │   ├── App.tsx      # Main App Component / 主应用组件
+│   │   └── main.tsx     # Application Entry / 应用入口
+│   ├── openapi/         # OpenAPI Files / OpenAPI文件
+│   ├── package.json     # Frontend Dependencies / 前端依赖
+│   └── Dockerfile       # Frontend Docker Config / 前端Docker配置
+├── scripts/             # Project Scripts / 项目脚本
+├── docker-compose.yml   # Docker Compose Config / Docker编排配置
+└── biome.json          # Code Formatting Config / 代码格式化配置
 ```
+
+## 🚀 Getting Started / 快速开始
+
+### Prerequisites / 前提条件
+
+- [Docker](https://www.docker.com/) and Docker Compose / 和 Docker Compose
+- [Go](https://golang.org/) 1.21+ (for local development / 本地开发用)
+- [Node.js](https://nodejs.org/) 18+ (for frontend / 前端用)
+- [Bun](https://bun.sh/) (recommended package manager / 推荐的包管理器)
+
+### Start with Docker / 使用Docker启动 (Recommended / 推荐)
+
+1. **Clone the project / 克隆项目**
 
 ## 🚀 Getting Started / 快速开始
 
@@ -82,13 +100,18 @@ GenshinQuiz/
 
 2. **Start all services / 启动所有服务**
    ```bash
-   docker-compose up -d
+   # Option 1: Use the start script / 选项1：使用启动脚本
+   ./scripts/start.sh
+   
+   # Option 2: Use docker-compose directly / 选项2：直接使用docker-compose
+   docker-compose up --build -d
    ```
 
 3. **Access the application / 访问应用**
    - Frontend / 前端应用: http://localhost:3000
-   - Backend API / 后端API: http://localhost:3001
-   - Swagger Documentation / Swagger文档: http://localhost:3020
+   - Go Backend API / Go后端API: http://localhost:8080
+   - API Health Check / API健康检查: http://localhost:8080/health
+   - Swagger Editor / Swagger编辑器: http://localhost:3020
 
 ### Local Development / 本地开发
 
@@ -96,8 +119,25 @@ GenshinQuiz/
 
 ```bash
 cd backend
-npm install
-npm start
+
+# Install Go dependencies / 安装Go依赖
+go mod tidy
+
+# Set up development environment / 设置开发环境
+./scripts/setup.sh
+
+# Start PostgreSQL / 启动PostgreSQL
+docker-compose up postgres -d
+
+# Run database migrations / 运行数据库迁移
+./scripts/migrate.sh up
+
+# Generate models and API code / 生成模型和API代码
+./scripts/generate_models.sh
+./scripts/generate_api.sh
+
+# Start the Go server / 启动Go服务器
+go run main.go
 ```
 
 Backend server will start at http://localhost:3001
