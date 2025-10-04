@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-jet/jet/v2/postgres"
 	"github.com/lib/pq"
 
 	"genshin-quiz-backend/internal/database"
 	"genshin-quiz-backend/internal/models"
+	"genshin-quiz-backend/internal/table"
 )
 
 type QuizRepository struct {
@@ -20,49 +22,50 @@ func NewQuizRepository(db *database.DB) *QuizRepository {
 }
 
 func (r *QuizRepository) GetAll(limit, offset int, category, difficulty string) ([]models.Quiz, int, error) {
-	// Build dynamic WHERE clause
-	whereParts := []string{}
-	args := []interface{}{}
-	argCount := 1
+	// Build dynamic WHERE conditions using go-jet
+	var conditions []postgres.BoolExpression
 
 	if category != "" {
-		whereParts = append(whereParts, fmt.Sprintf("q.category = $%d", argCount))
-		args = append(args, category)
-		argCount++
+		conditions = append(conditions, table.QuizzesCategory.EQ(postgres.String(category)))
 	}
 	if difficulty != "" {
-		whereParts = append(whereParts, fmt.Sprintf("q.difficulty = $%d", argCount))
-		args = append(args, difficulty)
-		argCount++
-	}
-
-	whereClause := ""
-	if len(whereParts) > 0 {
-		whereClause = "WHERE " + strings.Join(whereParts, " AND ")
+		conditions = append(conditions, table.QuizzesDifficulty.EQ(postgres.String(difficulty)))
 	}
 
 	// Get total count
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM quizzes q %s", whereClause)
+	countStmt := postgres.SELECT(postgres.COUNT(postgres.STAR)).FROM(table.Quizzes)
+	if len(conditions) > 0 {
+		countStmt = countStmt.WHERE(postgres.AND(conditions...))
+	}
+
 	var total int
-	err := r.db.QueryRow(countQuery, args...).Scan(&total)
+	err := r.db.QueryRowStatement(countStmt).Scan(&total)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get quiz count: %w", err)
 	}
 
-	// Add pagination args
-	args = append(args, limit, offset)
-	
 	// Get quizzes with pagination
-	query := fmt.Sprintf(`
-		SELECT q.id, q.title, q.description, q.category, q.difficulty, 
-		       q.time_limit, q.created_by, q.created_at, q.updated_at
-		FROM quizzes q 
-		%s
-		ORDER BY q.created_at DESC 
-		LIMIT $%d OFFSET $%d
-	`, whereClause, argCount, argCount+1)
+	stmt := postgres.SELECT(
+		table.QuizzesID,
+		table.QuizzesTitle,
+		table.QuizzesDescription,
+		table.QuizzesCategory,
+		table.QuizzesDifficulty,
+		table.QuizzesTimeLimit,
+		table.QuizzesCreatedBy,
+		table.QuizzesCreatedAt,
+		table.QuizzesUpdatedAt,
+	).FROM(
+		table.Quizzes,
+	).ORDER_BY(
+		table.QuizzesCreatedAt.DESC(),
+	).LIMIT(int64(limit)).OFFSET(int64(offset))
 
-	rows, err := r.db.Query(query, args...)
+	if len(conditions) > 0 {
+		stmt = stmt.WHERE(postgres.AND(conditions...))
+	}
+
+	rows, err := r.db.QueryStatement(stmt)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to query quizzes: %w", err)
 	}
@@ -86,15 +89,24 @@ func (r *QuizRepository) GetAll(limit, offset int, category, difficulty string) 
 }
 
 func (r *QuizRepository) GetByID(id int64) (*models.Quiz, error) {
-	query := `
-		SELECT q.id, q.title, q.description, q.category, q.difficulty, 
-		       q.time_limit, q.created_by, q.created_at, q.updated_at
-		FROM quizzes q 
-		WHERE q.id = $1
-	`
+	stmt := postgres.SELECT(
+		table.QuizzesID,
+		table.QuizzesTitle,
+		table.QuizzesDescription,
+		table.QuizzesCategory,
+		table.QuizzesDifficulty,
+		table.QuizzesTimeLimit,
+		table.QuizzesCreatedBy,
+		table.QuizzesCreatedAt,
+		table.QuizzesUpdatedAt,
+	).FROM(
+		table.Quizzes,
+	).WHERE(
+		table.QuizzesID.EQ(postgres.Int(id)),
+	)
 
 	var quiz models.Quiz
-	err := r.db.QueryRow(query, id).Scan(
+	err := r.db.QueryRowStatement(stmt).Scan(
 		&quiz.ID, &quiz.Title, &quiz.Description, &quiz.Category,
 		&quiz.Difficulty, &quiz.TimeLimit, &quiz.CreatedBy,
 		&quiz.CreatedAt, &quiz.UpdatedAt,
@@ -118,16 +130,27 @@ func (r *QuizRepository) GetByID(id int64) (*models.Quiz, error) {
 }
 
 func (r *QuizRepository) getQuestionsByQuizID(quizID int64) ([]models.Question, error) {
-	query := `
-		SELECT id, quiz_id, question_text, question_type, options, 
-		       correct_answer, explanation, points, order_index, 
-		       created_at, updated_at
-		FROM questions 
-		WHERE quiz_id = $1 
-		ORDER BY order_index
-	`
+	stmt := postgres.SELECT(
+		table.QuestionsID,
+		table.QuestionsQuizID,
+		table.QuestionsQuestionText,
+		table.QuestionsQuestionType,
+		table.QuestionsOptions,
+		table.QuestionsCorrectAnswer,
+		table.QuestionsExplanation,
+		table.QuestionsPoints,
+		table.QuestionsOrderIndex,
+		table.QuestionsCreatedAt,
+		table.QuestionsUpdatedAt,
+	).FROM(
+		table.Questions,
+	).WHERE(
+		table.QuestionsQuizID.EQ(postgres.Int(quizID)),
+	).ORDER_BY(
+		table.QuestionsOrderIndex.ASC(),
+	)
 
-	rows, err := r.db.Query(query, quizID)
+	rows, err := r.db.QueryStatement(stmt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query questions: %w", err)
 	}
@@ -172,7 +195,7 @@ func (r *QuizRepository) Create(req models.CreateQuizRequest) (*models.Quiz, err
 	`
 
 	var quiz models.Quiz
-	err = tx.QueryRow(quizQuery, req.Title, req.Description, req.Category, 
+	err = tx.QueryRow(quizQuery, req.Title, req.Description, req.Category,
 		req.Difficulty, req.TimeLimit, req.CreatedBy).Scan(
 		&quiz.ID, &quiz.Title, &quiz.Description, &quiz.Category,
 		&quiz.Difficulty, &quiz.TimeLimit, &quiz.CreatedBy,
@@ -299,8 +322,10 @@ func (r *QuizRepository) Update(id int64, req models.UpdateQuizRequest) (*models
 }
 
 func (r *QuizRepository) Delete(id int64) error {
-	query := "DELETE FROM quizzes WHERE id = $1"
-	result, err := r.db.Exec(query, id)
+	stmt := table.Quizzes.DELETE().
+		WHERE(table.QuizzesID.EQ(postgres.Int(id)))
+
+	result, err := r.db.ExecStatement(stmt)
 	if err != nil {
 		return fmt.Errorf("failed to delete quiz: %w", err)
 	}

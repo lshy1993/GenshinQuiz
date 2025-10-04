@@ -9,6 +9,7 @@ import (
 
 	"genshin-quiz-backend/internal/database"
 	"genshin-quiz-backend/internal/models"
+	"genshin-quiz-backend/internal/table"
 )
 
 type UserRepository struct {
@@ -20,26 +21,33 @@ func NewUserRepository(db *database.DB) *UserRepository {
 }
 
 func (r *UserRepository) GetAll(limit, offset int) ([]models.User, int, error) {
-	// For now, we'll use raw SQL queries. 
-	// After running generate_models.sh, we can replace these with Go-Jet queries
+	// 使用 go-jet 查询总数
+	countStmt := postgres.SELECT(postgres.COUNT(postgres.STAR)).FROM(table.Users)
 
-	// Get total count
 	var total int
-	err := r.db.QueryRow("SELECT COUNT(*) FROM users").Scan(&total)
+	err := r.db.QueryRowStatement(countStmt).Scan(&total)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get user count: %w", err)
 	}
 
-	// Get users with pagination
-	query := `
-		SELECT id, username, email, display_name, avatar_url, 
-		       total_score, quizzes_completed, created_at, updated_at
-		FROM users 
-		ORDER BY created_at DESC 
-		LIMIT $1 OFFSET $2
-	`
+	// 使用 go-jet 分页查询用户
+	stmt := postgres.SELECT(
+		table.UsersID,
+		table.UsersUsername,
+		table.UsersEmail,
+		table.UsersDisplayName,
+		table.UsersAvatarURL,
+		table.UsersTotalScore,
+		table.UsersQuizzesCompleted,
+		table.UsersCreatedAt,
+		table.UsersUpdatedAt,
+	).FROM(
+		table.Users,
+	).ORDER_BY(
+		table.UsersCreatedAt.DESC(),
+	).LIMIT(int64(limit)).OFFSET(int64(offset))
 
-	rows, err := r.db.Query(query, limit, offset)
+	rows, err := r.db.QueryStatement(stmt)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to query users: %w", err)
 	}
@@ -63,15 +71,24 @@ func (r *UserRepository) GetAll(limit, offset int) ([]models.User, int, error) {
 }
 
 func (r *UserRepository) GetByID(id int64) (*models.User, error) {
-	query := `
-		SELECT id, username, email, display_name, avatar_url, 
-		       total_score, quizzes_completed, created_at, updated_at
-		FROM users 
-		WHERE id = $1
-	`
+	stmt := postgres.SELECT(
+		table.UsersID,
+		table.UsersUsername,
+		table.UsersEmail,
+		table.UsersDisplayName,
+		table.UsersAvatarURL,
+		table.UsersTotalScore,
+		table.UsersQuizzesCompleted,
+		table.UsersCreatedAt,
+		table.UsersUpdatedAt,
+	).FROM(
+		table.Users,
+	).WHERE(
+		table.UsersID.EQ(postgres.String(fmt.Sprintf("%d", id))),
+	)
 
 	var user models.User
-	err := r.db.QueryRow(query, id).Scan(
+	err := r.db.QueryRowStatement(stmt).Scan(
 		&user.ID, &user.Username, &user.Email, &user.DisplayName,
 		&user.AvatarURL, &user.TotalScore, &user.QuizzesCompleted,
 		&user.CreatedAt, &user.UpdatedAt,
@@ -88,15 +105,24 @@ func (r *UserRepository) GetByID(id int64) (*models.User, error) {
 }
 
 func (r *UserRepository) GetByUsername(username string) (*models.User, error) {
-	query := `
-		SELECT id, username, email, display_name, avatar_url, 
-		       total_score, quizzes_completed, created_at, updated_at
-		FROM users 
-		WHERE username = $1
-	`
+	stmt := postgres.SELECT(
+		table.UsersID,
+		table.UsersUsername,
+		table.UsersEmail,
+		table.UsersDisplayName,
+		table.UsersAvatarURL,
+		table.UsersTotalScore,
+		table.UsersQuizzesCompleted,
+		table.UsersCreatedAt,
+		table.UsersUpdatedAt,
+	).FROM(
+		table.Users,
+	).WHERE(
+		table.UsersUsername.EQ(postgres.String(username)),
+	)
 
 	var user models.User
-	err := r.db.QueryRow(query, username).Scan(
+	err := r.db.QueryRowStatement(stmt).Scan(
 		&user.ID, &user.Username, &user.Email, &user.DisplayName,
 		&user.AvatarURL, &user.TotalScore, &user.QuizzesCompleted,
 		&user.CreatedAt, &user.UpdatedAt,
@@ -113,15 +139,24 @@ func (r *UserRepository) GetByUsername(username string) (*models.User, error) {
 }
 
 func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
-	query := `
-		SELECT id, username, email, display_name, avatar_url, 
-		       total_score, quizzes_completed, created_at, updated_at
-		FROM users 
-		WHERE email = $1
-	`
+	stmt := postgres.SELECT(
+		table.UsersID,
+		table.UsersUsername,
+		table.UsersEmail,
+		table.UsersDisplayName,
+		table.UsersAvatarURL,
+		table.UsersTotalScore,
+		table.UsersQuizzesCompleted,
+		table.UsersCreatedAt,
+		table.UsersUpdatedAt,
+	).FROM(
+		table.Users,
+	).WHERE(
+		table.UsersEmail.EQ(postgres.String(email)),
+	)
 
 	var user models.User
-	err := r.db.QueryRow(query, email).Scan(
+	err := r.db.QueryRowStatement(stmt).Scan(
 		&user.ID, &user.Username, &user.Email, &user.DisplayName,
 		&user.AvatarURL, &user.TotalScore, &user.QuizzesCompleted,
 		&user.CreatedAt, &user.UpdatedAt,
@@ -138,15 +173,40 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 }
 
 func (r *UserRepository) Create(req models.CreateUserRequest) (*models.User, error) {
-	query := `
-		INSERT INTO users (username, email, display_name, avatar_url)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, username, email, display_name, avatar_url, 
-		          total_score, quizzes_completed, created_at, updated_at
-	`
+	// 处理可选字段
+	displayName := ""
+	if req.DisplayName != nil {
+		displayName = *req.DisplayName
+	}
+	avatarURL := ""
+	if req.AvatarURL != nil {
+		avatarURL = *req.AvatarURL
+	}
+
+	stmt := table.Users.INSERT(
+		table.UsersUsername,
+		table.UsersEmail,
+		table.UsersDisplayName,
+		table.UsersAvatarURL,
+	).VALUES(
+		req.Username,
+		req.Email,
+		displayName,
+		avatarURL,
+	).RETURNING(
+		table.UsersID,
+		table.UsersUsername,
+		table.UsersEmail,
+		table.UsersDisplayName,
+		table.UsersAvatarURL,
+		table.UsersTotalScore,
+		table.UsersQuizzesCompleted,
+		table.UsersCreatedAt,
+		table.UsersUpdatedAt,
+	)
 
 	var user models.User
-	err := r.db.QueryRow(query, req.Username, req.Email, req.DisplayName, req.AvatarURL).Scan(
+	err := r.db.QueryRowStatement(stmt).Scan(
 		&user.ID, &user.Username, &user.Email, &user.DisplayName,
 		&user.AvatarURL, &user.TotalScore, &user.QuizzesCompleted,
 		&user.CreatedAt, &user.UpdatedAt,
@@ -171,49 +231,48 @@ func (r *UserRepository) Create(req models.CreateUserRequest) (*models.User, err
 }
 
 func (r *UserRepository) Update(id int64, req models.UpdateUserRequest) (*models.User, error) {
-	// Build dynamic update query
-	setParts := []string{}
-	args := []interface{}{}
-	argCount := 1
+	// Create base update statement
+	updateStmt := table.Users.UPDATE()
 
+	// Add fields to update based on what's provided
 	if req.Username != nil {
-		setParts = append(setParts, fmt.Sprintf("username = $%d", argCount))
-		args = append(args, *req.Username)
-		argCount++
+		updateStmt = updateStmt.SET(table.UsersUsername.SET(postgres.String(*req.Username)))
 	}
 	if req.Email != nil {
-		setParts = append(setParts, fmt.Sprintf("email = $%d", argCount))
-		args = append(args, *req.Email)
-		argCount++
+		updateStmt = updateStmt.SET(table.UsersEmail.SET(postgres.String(*req.Email)))
 	}
 	if req.DisplayName != nil {
-		setParts = append(setParts, fmt.Sprintf("display_name = $%d", argCount))
-		args = append(args, *req.DisplayName)
-		argCount++
+		updateStmt = updateStmt.SET(table.UsersDisplayName.SET(postgres.String(*req.DisplayName)))
 	}
 	if req.AvatarURL != nil {
-		setParts = append(setParts, fmt.Sprintf("avatar_url = $%d", argCount))
-		args = append(args, *req.AvatarURL)
-		argCount++
+		updateStmt = updateStmt.SET(table.UsersAvatarURL.SET(postgres.String(*req.AvatarURL)))
 	}
 
-	if len(setParts) == 0 {
+	// If no fields to update, just return current user
+	if req.Username == nil && req.Email == nil && req.DisplayName == nil && req.AvatarURL == nil {
 		return r.GetByID(id)
 	}
 
-	setParts = append(setParts, fmt.Sprintf("updated_at = CURRENT_TIMESTAMP"))
-	args = append(args, id)
+	// Always update the updated_at timestamp using SQL expression
+	updateStmt = updateStmt.SET(table.UsersUpdatedAt.SET(postgres.RawTimestamp("CURRENT_TIMESTAMP")))
 
-	query := fmt.Sprintf(`
-		UPDATE users 
-		SET %s
-		WHERE id = $%d
-		RETURNING id, username, email, display_name, avatar_url, 
-		          total_score, quizzes_completed, created_at, updated_at
-	`, postgres.String(setParts).Join(", "), argCount)
+	// Add WHERE clause and RETURNING
+	stmt := updateStmt.WHERE(
+		table.UsersID.EQ(postgres.String(fmt.Sprintf("%d", id))),
+	).RETURNING(
+		table.UsersID,
+		table.UsersUsername,
+		table.UsersEmail,
+		table.UsersDisplayName,
+		table.UsersAvatarURL,
+		table.UsersTotalScore,
+		table.UsersQuizzesCompleted,
+		table.UsersCreatedAt,
+		table.UsersUpdatedAt,
+	)
 
 	var user models.User
-	err := r.db.QueryRow(query, args...).Scan(
+	err := r.db.QueryRowStatement(stmt).Scan(
 		&user.ID, &user.Username, &user.Email, &user.DisplayName,
 		&user.AvatarURL, &user.TotalScore, &user.QuizzesCompleted,
 		&user.CreatedAt, &user.UpdatedAt,
@@ -238,8 +297,10 @@ func (r *UserRepository) Update(id int64, req models.UpdateUserRequest) (*models
 }
 
 func (r *UserRepository) Delete(id int64) error {
-	query := "DELETE FROM users WHERE id = $1"
-	result, err := r.db.Exec(query, id)
+	stmt := table.Users.DELETE().
+		WHERE(table.UsersID.EQ(postgres.String(fmt.Sprintf("%d", id))))
+
+	result, err := r.db.ExecStatement(stmt)
 	if err != nil {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
@@ -257,15 +318,15 @@ func (r *UserRepository) Delete(id int64) error {
 }
 
 func (r *UserRepository) UpdateScore(userID int64, scoreIncrement int) error {
-	query := `
-		UPDATE users 
-		SET total_score = total_score + $1,
-		    quizzes_completed = quizzes_completed + 1,
-		    updated_at = CURRENT_TIMESTAMP
-		WHERE id = $2
-	`
+	stmt := table.Users.UPDATE().
+		SET(
+			table.UsersTotalScore.SET(table.UsersTotalScore.ADD(postgres.Int(int64(scoreIncrement)))),
+			table.UsersQuizzesCompleted.SET(table.UsersQuizzesCompleted.ADD(postgres.Int(1))),
+		).WHERE(
+		table.UsersID.EQ(postgres.String(fmt.Sprintf("%d", userID))),
+	)
 
-	_, err := r.db.Exec(query, scoreIncrement, userID)
+	_, err := r.db.ExecStatement(stmt)
 	if err != nil {
 		return fmt.Errorf("failed to update user score: %w", err)
 	}

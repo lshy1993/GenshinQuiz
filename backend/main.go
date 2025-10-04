@@ -40,7 +40,7 @@ func main() {
 	logger.SetFormatter(&logrus.JSONFormatter{})
 	logger.SetLevel(logrus.InfoLevel)
 
-	// Initialize database connection
+	// Initialize database connection using go-jet
 	db, err := sql.Open("postgres", cfg.DatabaseURL)
 	if err != nil {
 		logger.Fatalf("Failed to connect to database: %v", err)
@@ -54,7 +54,7 @@ func main() {
 
 	logger.Info("Database connection established")
 
-	// Initialize database wrapper
+	// Initialize go-jet database wrapper
 	dbWrapper := database.New(db)
 
 	// Initialize repositories
