@@ -1,23 +1,45 @@
 package config
 
 import (
+	"context"
+	"database/sql"
+	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
+	sentryhttp "github.com/getsentry/sentry-go/http"
+	"github.com/go-chi/jwtauth/v5"
+	_ "github.com/lib/pq"
+	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
-type Config struct {
+type App struct {
+	DB      *sql.DB
+	Redis   *redis.Client
+	JWTAuth *jwtauth.JWTAuth
+	Sentry  *sentryhttp.Handler
+	Logger  *zap.Logger
+	Storage *azblob.SharedKeyCredential
+
+	Config   AppConfig
+	Database DatabaseConfig
+	Worker   WorkerConfig
+	Azure    AzureConfig
+	Server   ServerConfig
+}
+
+type AppConfig struct {
 	Port        string
 	DatabaseURL string
 	JWTSecret   string
 	Environment string
 	Version     string
 	SentryDSN   string
-
-	Database DatabaseConfig
-	Worker   WorkerConfig
-	Azure    AzureConfig
-	Server   ServerConfig
 }
 
 type DatabaseConfig struct {
@@ -48,14 +70,100 @@ type ServerConfig struct {
 	WriteTimeout time.Duration
 }
 
-func Load() *Config {
-	return &Config{
-		Port:        getEnv("PORT", "8080"),
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://user:password@localhost/genshin_quiz?sslmode=disable"),
-		JWTSecret:   getEnv("JWT_SECRET", "your-secret-key"),
-		Environment: getEnv("ENVIRONMENT", "development"),
-		Version:     getEnv("VERSION", "dev"),
-		SentryDSN:   getEnv("SENTRY_DSN", ""),
+func getEnv(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	return value
+}
+
+func getEnvAsInt(key string, defaultValue int) int {
+	valueStr := getEnv(key, "")
+	if value, err := strconv.Atoi(valueStr); err == nil {
+		return value
+	}
+	return defaultValue
+}
+
+func getEnvAsDuration(key string, defaultValue string) time.Duration {
+	valueStr := getEnv(key, defaultValue)
+	if value, err := time.ParseDuration(valueStr); err == nil {
+		return value
+	}
+	if value, err := time.ParseDuration(defaultValue); err == nil {
+		return value
+	}
+	return time.Minute * 5
+}
+
+func (app *App) initializeLogger() (*zap.Logger, error) {
+	var config zap.Config
+
+	if app.Config.Environment == "production" {
+		config = zap.NewProductionConfig()
+		config.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
+	} else {
+		config = zap.NewDevelopmentConfig()
+		config.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
+	}
+
+	config.EncoderConfig.TimeKey = "timestamp"
+	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+
+	return config.Build()
+}
+
+func (app *App) initializeDatabase() (*sql.DB, error) {
+	// Build connection string from config
+	var dsn string
+	if app.Config.DatabaseURL != "" {
+		dsn = app.Config.DatabaseURL
+	} else {
+		dsn = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+			app.Database.Host,
+			app.Database.Port,
+			app.Database.User,
+			app.Database.Password,
+			app.Database.Name,
+		)
+	}
+
+	app.Logger.Debug("Connecting to database...")
+
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database connection: %w", err)
+	}
+
+	// Configure connection pool
+	db.SetMaxOpenConns(app.Database.MaxOpenConns)
+	db.SetMaxIdleConns(app.Database.MaxIdleConns)
+	db.SetConnMaxLifetime(app.Database.ConnMaxLifetime)
+
+	// Test connection
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := db.PingContext(ctx); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	app.Logger.Info("Database connection established successfully")
+	return db, nil
+}
+
+func NewApp() *App {
+	app := &App{
+		Config: AppConfig{
+			Port:        getEnv("PORT", "8080"),
+			DatabaseURL: getEnv("DATABASE_URL", "postgres://user:password@localhost/genshin_quiz?sslmode=disable"),
+			JWTSecret:   getEnv("JWT_SECRET", "your-secret-key"),
+			Environment: getEnv("ENVIRONMENT", "development"),
+			Version:     getEnv("VERSION", "dev"),
+			SentryDSN:   getEnv("SENTRY_DSN", ""),
+		},
 
 		Database: DatabaseConfig{
 			Host:            getEnv("DB_HOST", "localhost"),
@@ -85,31 +193,18 @@ func Load() *Config {
 			WriteTimeout: getEnvAsDuration("SERVER_WRITE_TIMEOUT", "30s"),
 		},
 	}
-}
+	logger, err := app.initializeLogger()
+	if err != nil {
+		log.Fatalf("Failed to initialize logger: %v", err)
+	}
+	defer logger.Sync()
+	app.Logger = logger
 
-func getEnv(key, defaultValue string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		return defaultValue
+	db, err := app.initializeDatabase()
+	if err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
 	}
-	return value
-}
+	app.DB = db
 
-func getEnvAsInt(key string, defaultValue int) int {
-	valueStr := getEnv(key, "")
-	if value, err := strconv.Atoi(valueStr); err == nil {
-		return value
-	}
-	return defaultValue
-}
-
-func getEnvAsDuration(key string, defaultValue string) time.Duration {
-	valueStr := getEnv(key, defaultValue)
-	if value, err := time.ParseDuration(valueStr); err == nil {
-		return value
-	}
-	if value, err := time.ParseDuration(defaultValue); err == nil {
-		return value
-	}
-	return time.Minute * 5
+	return app
 }

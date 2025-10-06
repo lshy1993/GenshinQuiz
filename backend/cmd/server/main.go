@@ -2,176 +2,144 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
-	"net/http"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
-	"github.com/go-chi/jwtauth/v5"
 	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
-	"genshin-quiz/internal/config"
-	"genshin-quiz/internal/handlers"
-	"genshin-quiz/internal/infrastructure"
-	"genshin-quiz/internal/middleware/auth"
-	"genshin-quiz/internal/middleware/logging"
-	"genshin-quiz/internal/repository"
-	"genshin-quiz/internal/services"
-)
-
-var (
-	version   = "dev"
-	buildTime = "unknown"
+	"genshin-quiz/config"
+	"genshin-quiz/internal/database"
+	"genshin-quiz/internal/webserver"
 )
 
 func main() {
 	// Load environment variables
 	if err := godotenv.Load(); err != nil {
-		fmt.Printf("Warning: Error loading .env file: %v\n", err)
+		log.Printf("Warning: Error loading .env file: %v", err)
 	}
 
 	// Initialize configuration
-	cfg := config.Load()
+	cfg := config.NewApp()
 
-	// Initialize infrastructure
-	infra, err := infrastructure.NewInfrastructure(cfg)
+	// Initialize logger
+	logger, err := initializeLogger(cfg.Environment)
 	if err != nil {
-		fmt.Printf("Failed to initialize infrastructure: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Failed to initialize logger: %v", err)
 	}
-	defer infra.Close()
+	defer logger.Sync()
 
-	logger := infra.Logger
-
-	logger.Info("Server starting",
-		zap.String("version", version),
-		zap.String("buildTime", buildTime),
+	logger.Info("Starting Genshin Quiz Backend",
 		zap.String("environment", cfg.Environment),
 	)
 
-	// Initialize JWT auth
-	tokenAuth := jwtauth.New("HS256", []byte(cfg.JWTSecret), nil)
+	// Initialize database connection
+	db, err := initializeDatabase(cfg, logger)
+	if err != nil {
+		logger.Fatal("Failed to initialize database", zap.Error(err))
+	}
+	defer db.Close()
 
-	// Initialize repositories
-	userRepo := repository.NewUserRepository(infra.DB, logger)
-	quizRepo := repository.NewQuizRepository(infra.DB, logger)
+	// Initialize database wrapper
+	dbWrapper := database.New(db)
 
-	// Initialize services
-	userService := services.NewUserService(userRepo, infra.TaskClient, logger)
-	quizService := services.NewQuizService(quizRepo, infra.TaskClient, logger)
+	// Initialize web server
+	server := webserver.New(webserver.Dependencies{
+		Config: cfg,
+		Logger: logger,
+		DB:     dbWrapper,
+	})
 
-	// Initialize handlers
-	userHandler := handlers.NewUserHandler(userService, logger)
-	quizHandler := handlers.NewQuizHandler(quizService, logger)
-
-	// Setup router
-	r := setupRouter(cfg, logger, tokenAuth, userHandler, quizHandler)
-
-	// Start server
-	srv := &http.Server{
-		Addr:         fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port),
-		Handler:      r,
-		ReadTimeout:  cfg.Server.ReadTimeout,
-		WriteTimeout: cfg.Server.WriteTimeout,
+	// Initialize server
+	if err := server.Initialize(); err != nil {
+		logger.Fatal("Failed to initialize server", zap.Error(err))
 	}
 
-	// Graceful shutdown
+	// Start server in a goroutine
 	go func() {
-		sigint := make(chan os.Signal, 1)
-		signal.Notify(sigint, os.Interrupt, syscall.SIGTERM)
-		<-sigint
-
-		logger.Info("Shutting down server...")
-
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-
-		if err := srv.Shutdown(ctx); err != nil {
-			logger.Fatal("Server forced to shutdown", zap.Error(err))
+		if err := server.Start(); err != nil {
+			logger.Fatal("Server failed to start", zap.Error(err))
 		}
 	}()
 
-	logger.Info("Server listening", zap.String("addr", srv.Addr))
-	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-		logger.Fatal("Server failed to start", zap.Error(err))
+	// Wait for interrupt signal to gracefully shutdown the server
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	// Graceful shutdown
+	logger.Info("Shutting down server...")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := server.Stop(ctx); err != nil {
+		logger.Error("Server forced to shutdown", zap.Error(err))
+		os.Exit(1)
 	}
 
-	logger.Info("Server stopped")
+	logger.Info("Server stopped gracefully")
 }
 
-func setupRouter(cfg *config.Config, logger *zap.Logger, tokenAuth *jwtauth.JWTAuth, userHandler *handlers.UserHandler, quizHandler *handlers.QuizHandler) *chi.Mux {
-	r := chi.NewRouter()
+func initializeLogger(environment string) (*zap.Logger, error) {
+	var config zap.Config
 
-	// Global middleware
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(logging.Logger(logger))
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(60 * time.Second))
+	if environment == "production" {
+		config = zap.NewProductionConfig()
+		config.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
+	} else {
+		config = zap.NewDevelopmentConfig()
+		config.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
+	}
 
-	// CORS configuration
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
-		MaxAge:           300,
-	}))
+	config.EncoderConfig.TimeKey = "timestamp"
+	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 
-	// Health check endpoint
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(fmt.Sprintf(`{
-			"status": "ok",
-			"version": "%s",
-			"buildTime": "%s",
-			"environment": "%s"
-		}`, version, buildTime, cfg.Environment)))
-	})
+	return config.Build()
+}
 
-	// Public routes
-	r.Route("/api/v1", func(r chi.Router) {
-		// Authentication routes
-		r.Route("/auth", func(r chi.Router) {
-			r.Post("/login", userHandler.Login)
-			r.Post("/register", userHandler.Register)
-		})
+func initializeDatabase(cfg *config.Config, logger *zap.Logger) (*sql.DB, error) {
+	// Build connection string from config
+	var dsn string
+	if cfg.DatabaseURL != "" {
+		dsn = cfg.DatabaseURL
+	} else {
+		dsn = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+			cfg.Database.Host,
+			cfg.Database.Port,
+			cfg.Database.User,
+			cfg.Database.Password,
+			cfg.Database.Name,
+		)
+	}
 
-		// Protected routes
-		r.Group(func(r chi.Router) {
-			// JWT authentication middleware
-			r.Use(jwtauth.Verifier(tokenAuth))
-			r.Use(auth.Authenticator)
+	logger.Debug("Connecting to database...")
 
-			// User routes
-			r.Route("/users", func(r chi.Router) {
-				r.Get("/", userHandler.GetUsers)
-				r.Get("/me", userHandler.GetCurrentUser)
-				r.Put("/me", userHandler.UpdateCurrentUser)
-				r.Get("/{id}", userHandler.GetUser)
-				r.Put("/{id}", userHandler.UpdateUser)
-				r.Delete("/{id}", userHandler.DeleteUser)
-			})
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database connection: %w", err)
+	}
 
-			// Quiz routes
-			r.Route("/quizzes", func(r chi.Router) {
-				r.Get("/", quizHandler.GetQuizzes)
-				r.Post("/", quizHandler.CreateQuiz)
-				r.Get("/{id}", quizHandler.GetQuiz)
-				r.Put("/{id}", quizHandler.UpdateQuiz)
-				r.Delete("/{id}", quizHandler.DeleteQuiz)
-				r.Post("/{id}/submit", quizHandler.SubmitQuiz)
-			})
-		})
-	})
+	// Configure connection pool
+	db.SetMaxOpenConns(cfg.Database.MaxOpenConns)
+	db.SetMaxIdleConns(cfg.Database.MaxIdleConns)
+	db.SetConnMaxLifetime(cfg.Database.ConnMaxLifetime)
 
-	return r
+	// Test connection
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := db.PingContext(ctx); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	logger.Info("Database connection established successfully")
+	return db, nil
 }

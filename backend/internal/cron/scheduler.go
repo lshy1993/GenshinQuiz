@@ -1,33 +1,29 @@
 package cron
 
 import (
+	"genshin-quiz/config"
 	"log"
 	"time"
 
 	"github.com/hibiken/asynq"
 	"go.uber.org/zap"
-
-	"genshin-quiz/internal/services"
-	"genshin-quiz/internal/tasks"
 )
 
 // Scheduler handles scheduled tasks
 type Scheduler struct {
-	userService *services.UserService
-	quizService *services.QuizService
-	taskClient  *asynq.Client
-	logger      *log.Logger
-	scheduler   *gocron.Scheduler
+	taskClient *asynq.Client
+	logger     *log.Logger
+	scheduler  *gocron.Scheduler
 }
 
 // NewScheduler creates a new cron scheduler
-func NewScheduler(userService *services.UserService, quizService *services.QuizService, taskClient *asynq.Client, logger *log.Logger) *Scheduler {
+func NewScheduler(
+	app *config.App,
+) *Scheduler {
 	return &Scheduler{
-		userService: userService,
-		quizService: quizService,
-		taskClient:  taskClient,
-		logger:      logger,
-		stopChan:    make(chan struct{}),
+		taskClient: taskClient,
+		logger:     app.Logger,
+		stopChan:   make(chan struct{}),
 	}
 }
 
