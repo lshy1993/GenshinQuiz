@@ -1,25 +1,24 @@
 package repository
 
 import (
-	"datab		r.logger.Printf("failed to get users (duration: %v): %v", time.Since(start), err)sql"
+	"database/sql"
 	"fmt"
-	"log"
-	"ti		r.logger.Printf("failed to count users (limit: %d, offset: %d, duration: %v): %v", limit, offset, time.Since(start), err)"github.com/go-jet/jet/v2/postgres"
-			r.logger.Printf("failed to get user by ID (user_id: %d, duration: %v): %v", id, time.Since(start), err)ng.org/x/crypto/bcrypt"
+	"time"
 
-	"genshin-qu		r.logger.Printf("failed to get user by email (email: %s, duration: %v): %v", email, time.Since(start), err)ckend/internal/models"
+	"github.com/go-jet/jet/v2/postgres"
+	"golang.org/x/crypto/bcrypt"
+
+	"genshin-quiz-backend/internal/models"
 	"genshin-quiz-backend/internal/table"
 )
 
 type UserRepository struct {
-	db     *sql.DB
-	logger *log.Logger
+	db *sql.DB
 }
 
-func NewUserRepository(db *sql.DB, logger *log.Logger) *UserRepository {
+func NewUserRepository(db *sql.DB) *UserRepository {
 	return &UserRepository{
-		db:     db,
-		logger: logger,
+		db: db,
 	}
 }
 

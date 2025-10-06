@@ -1,7 +1,6 @@
 package logging
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
@@ -9,7 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// Logger is a middleware that logs HTTP requests using Zap logger
+// Logger is a middleware that logs HTTP requests using zap logger
 func Logger(logger *zap.Logger) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +39,7 @@ func Logger(logger *zap.Logger) func(next http.Handler) http.Handler {
 	}
 }
 
-// ErrorLogger logs errors with Zap
+// ErrorLogger logs errors with zap
 func ErrorLogger(logger *zap.Logger) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
@@ -48,6 +47,19 @@ func ErrorLogger(logger *zap.Logger) func(next http.Handler) http.Handler {
 				if err := recover(); err != nil {
 					logger.Error("Panic recovered",
 						zap.Any("error", err),
+						zap.String("method", r.Method),
+						zap.String("url", r.URL.String()),
+						zap.String("request_id", middleware.GetReqID(r.Context())),
+					)
+					http.Error(w, "Internal server error", http.StatusInternalServerError)
+				}
+			}()
+			
+			next.ServeHTTP(w, r)
+		}
+		return http.HandlerFunc(fn)
+	}
+}
 						zap.String("method", r.Method),
 						zap.String("url", r.URL.String()),
 						zap.String("request_id", middleware.GetReqID(r.Context())),

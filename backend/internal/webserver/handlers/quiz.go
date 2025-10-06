@@ -2,13 +2,11 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
-	"github.com/getsentry/sentry-go"
 
 	"genshin-quiz-backend/internal/models"
 	"genshin-quiz-backend/internal/services"
@@ -16,13 +14,11 @@ import (
 
 type QuizHandler struct {
 	quizService *services.QuizService
-	logger      *log.Logger
 }
 
-func NewQuizHandler(quizService *services.QuizService, logger *log.Logger) *QuizHandler {
+func NewQuizHandler(quizService *services.QuizService) *QuizHandler {
 	return &QuizHandler{
 		quizService: quizService,
-		logger:      logger,
 	}
 }
 

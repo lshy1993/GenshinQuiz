@@ -2,27 +2,21 @@ package services
 
 import (
 	"fmt"
-	"log"
 	"time"
 
-	"github.com/hibiken/asynq"
 	"golang.org/x/crypto/bcrypt"
 
 	"genshin-quiz-backend/internal/models"
 	"genshin-quiz-backend/internal/repository"
-	"genshin-quiz-backend/internal/tasks"
 )
 
 type UserService struct {
 	userRepo *repository.UserRepository
-	logger   *log.Logger
 }
 
-func NewUserService(userRepo *repository.UserRepository, logger *log.Logger) *UserService {
+func NewUserService(userRepo *repository.UserRepository) *UserService {
 	return &UserService{
-		userRepo:   userRepo,
-		taskClient: taskClient,
-		logger:     logger,
+		userRepo: userRepo,
 	}
 }
 
@@ -45,12 +39,6 @@ func (s *UserService) GetUsers(limit, offset int, search string) (*models.ListRe
 	}
 
 	if err != nil {
-		s.logger.Error("Failed to get users", 
-			zap.Int("limit", limit),
-			zap.Int("offset", offset),
-			zap.String("search", search),
-			zap.Error(err),
-		)
 		return nil, fmt.Errorf("failed to get users: %w", err)
 	}
 

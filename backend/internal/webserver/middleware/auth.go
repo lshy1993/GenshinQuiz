@@ -3,9 +3,11 @@ package auth
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/go-chi/render"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // UserClaims represents the claims stored in JWT
@@ -13,39 +15,91 @@ type UserClaims struct {
 	UserID   int64  `json:"user_id"`
 	Username string `json:"username"`
 	Email    string `json:"email"`
+	jwt.RegisteredClaims
 }
 
 // UserContext key for storing user claims in context
 type userContextKey struct{}
 
-// Authenticator is a middleware that checks for a valid JWT token
-func Authenticator(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token, claims, err := jwtauth.FromContext(r.Context())
+// JWTAuth creates a JWT authentication middleware
+func JWTAuth(jwtSecret string) func(http.Handler) http.Handler {
+	tokenAuth := jwtauth.New("HS256", []byte(jwtSecret), nil)
+	
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Get token from Authorization header
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
+				http.Error(w, "Missing authorization header", http.StatusUnauthorized)
+				return
+			}
+			
+			// Check if it's a Bearer token
+			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+			if tokenString == authHeader {
+				http.Error(w, "Invalid authorization header format", http.StatusUnauthorized)
+				return
+			}
+			
+			// Parse and validate token
+			token, err := tokenAuth.Decode(tokenString)
+			if err != nil {
+				http.Error(w, "Invalid token", http.StatusUnauthorized)
+				return
+			}
+			
+			if !token.Valid {
+				http.Error(w, "Invalid token", http.StatusUnauthorized)
+				return
+			}
+			
+			// Extract claims
+			claims, ok := token.Claims.(jwt.MapClaims)
+			if !ok {
+				http.Error(w, "Invalid token claims", http.StatusUnauthorized)
+				return
+			}
+			
+			// Extract user information
+			userID, ok := claims["user_id"].(float64)
+			if !ok {
+				http.Error(w, "Invalid user ID in token", http.StatusUnauthorized)
+				return
+			}
+			
+			username, ok := claims["username"].(string)
+			if !ok {
+				http.Error(w, "Invalid username in token", http.StatusUnauthorized)
+				return
+			}
+			
+			email, ok := claims["email"].(string)
+			if !ok {
+				http.Error(w, "Invalid email in token", http.StatusUnauthorized)
+				return
+			}
+			
+			// Create user claims
+			userClaims := UserClaims{
+				UserID:   int64(userID),
+				Username: username,
+				Email:    email,
+			}
+			
+			// Add user claims to context
+			ctx := context.WithValue(r.Context(), userContextKey{}, userClaims)
+			
+			// Continue with the request
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
 
-		if err != nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-
-		if token == nil || !token.Valid {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-
-		// Extract user claims
-		userClaims := UserClaims{
-			UserID:   int64(claims["user_id"].(float64)),
-			Username: claims["username"].(string),
-			Email:    claims["email"].(string),
-		}
-
-		// Add user claims to context
-		ctx := context.WithValue(r.Context(), userContextKey{}, userClaims)
-
-		// Token is authenticated, pass it through
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
+// GetUserFromContext extracts user claims from request context
+func GetUserFromContext(r *http.Request) (*UserClaims, bool) {
+	user, ok := r.Context().Value(userContextKey{}).(UserClaims)
+	return &user, ok
+}
 }
 
 // AdminOnly is a middleware that checks if the user has admin privileges

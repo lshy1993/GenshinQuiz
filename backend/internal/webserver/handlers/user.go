@@ -2,36 +2,18 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
-	"github.com/getsentry/sentry-go"
 
-	"genshin-quiz-backend/internal/models"
-	"genshin-quiz-backend/internal/services"
-)
-	"encoding/json"
-	"net/http"
-	"strconv"
-	"time"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/jwtauth/v5"
-	"github.com/go-chi/render"
-	"github.com/golang-jwt/jwt/v5"
-	"go.uber.org/zap"
-
-	"genshin-quiz-backend/internal/middleware/auth"
 	"genshin-quiz-backend/internal/models"
 	"genshin-quiz-backend/internal/services"
 )
 
 type UserHandler struct {
 	userService *services.UserService
-	logger      *log.Logger
 }
 
 type LoginRequest struct {
@@ -50,10 +32,9 @@ type AuthResponse struct {
 	User  *models.User `json:"user"`
 }
 
-func NewUserHandler(userService *services.UserService, logger *log.Logger) *UserHandler {
+func NewUserHandler(userService *services.UserService) *UserHandler {
 	return &UserHandler{
 		userService: userService,
-		logger:      logger,
 	}
 }
 

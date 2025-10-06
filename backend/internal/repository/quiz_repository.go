@@ -14,12 +14,13 @@ import (
 )
 
 type QuizRepository struct {
-	db     *sql.DB
-	logger *log.Logger
+	db *sql.DB
 }
 
-func NewQuizRepository(db *sql.DB, logger *log.Logger) *QuizRepository {
-	return &QuizRepository{db: db}
+func NewQuizRepository(db *sql.DB) *QuizRepository {
+	return &QuizRepository{
+		db: db,
+	}
 }
 
 func (r *QuizRepository) GetAll(limit, offset int, category, difficulty string) ([]models.Quiz, int, error) {

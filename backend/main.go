@@ -5,143 +5,143 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
-	"genshin-quiz-backend/internal/config"
+	"genshin-quiz-backend/config"
 	"genshin-quiz-backend/internal/database"
-	"genshin-quiz-backend/internal/handlers"
-	"genshin-quiz-backend/internal/middleware/logging"
-	"genshin-quiz-backend/internal/repository"
-	"genshin-quiz-backend/internal/services"
+	"genshin-quiz-backend/internal/webserver"
 )
 
 func main() {
 	// Load environment variables
 	if err := godotenv.Load(); err != nil {
-		log.Printf("Error loading .env file: %v", err)
+		log.Printf("Warning: Error loading .env file: %v", err)
 	}
 
 	// Initialize configuration
 	cfg := config.Load()
 
 	// Initialize logger
-	logger := logrus.New()
-	logger.SetFormatter(&logrus.JSONFormatter{})
-	logger.SetLevel(logrus.InfoLevel)
-
-	// Initialize database connection using go-jet
-	db, err := sql.Open("postgres", cfg.DatabaseURL)
+	logger, err := initializeLogger(cfg.Environment)
 	if err != nil {
-		logger.Fatalf("Failed to connect to database: %v", err)
+		log.Fatalf("Failed to initialize logger: %v", err)
+	}
+	defer logger.Sync()
+
+	logger.Info("Starting Genshin Quiz Backend",
+		zap.String("version", cfg.Version),
+		zap.String("environment", cfg.Environment),
+	)
+
+	// Initialize database connection
+	db, err := initializeDatabase(cfg, logger)
+	if err != nil {
+		logger.Fatal("Failed to initialize database", zap.Error(err))
 	}
 	defer db.Close()
 
-	// Test database connection
-	if err := db.Ping(); err != nil {
-		logger.Fatalf("Failed to ping database: %v", err)
-	}
-
-	logger.Info("Database connection established")
-
-	// Initialize go-jet database wrapper
+	// Initialize database wrapper
 	dbWrapper := database.New(db)
 
-	// Initialize repositories
-	userRepo := repository.NewUserRepository(dbWrapper)
-	quizRepo := repository.NewQuizRepository(dbWrapper)
-
-	// Initialize services
-	userService := services.NewUserService(userRepo)
-	quizService := services.NewQuizService(quizRepo)
-
-	// Initialize handlers
-	userHandler := handlers.NewUserHandler(userService)
-	quizHandler := handlers.NewQuizHandler(quizService)
-
-	// Setup router
-	r := chi.NewRouter()
-
-	// Middleware
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(logging.Logger(logger))
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(60 * time.Second))
-
-	// CORS configuration
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
-		MaxAge:           300,
-	}))
-
-	// Health check endpoint
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+	// Initialize web server
+	server := webserver.New(webserver.Dependencies{
+		Config: cfg,
+		Logger: logger,
+		DB:     dbWrapper,
 	})
 
-	// API routes
-	r.Route("/api/v1", func(r chi.Router) {
-		// User routes
-		r.Route("/users", func(r chi.Router) {
-			r.Get("/", userHandler.GetUsers)
-			r.Post("/", userHandler.CreateUser)
-			r.Get("/{id}", userHandler.GetUser)
-			r.Put("/{id}", userHandler.UpdateUser)
-			r.Delete("/{id}", userHandler.DeleteUser)
-		})
-
-		// Quiz routes
-		r.Route("/quizzes", func(r chi.Router) {
-			r.Get("/", quizHandler.GetQuizzes)
-			r.Post("/", quizHandler.CreateQuiz)
-			r.Get("/{id}", quizHandler.GetQuiz)
-			r.Put("/{id}", quizHandler.UpdateQuiz)
-			r.Delete("/{id}", quizHandler.DeleteQuiz)
-		})
-	})
-
-	// Start server
-	srv := &http.Server{
-		Addr:    fmt.Sprintf(":%s", cfg.Port),
-		Handler: r,
+	// Initialize server
+	if err := server.Initialize(); err != nil {
+		logger.Fatal("Failed to initialize server", zap.Error(err))
 	}
 
-	// Graceful shutdown
+	// Start server in a goroutine
 	go func() {
-		sigint := make(chan os.Signal, 1)
-		signal.Notify(sigint, os.Interrupt, syscall.SIGTERM)
-		<-sigint
-
-		logger.Info("Shutting down server...")
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		if err := srv.Shutdown(ctx); err != nil {
-			logger.Fatalf("Server forced to shutdown: %v", err)
+		if err := server.Start(); err != nil {
+			logger.Fatal("Server failed to start", zap.Error(err))
 		}
 	}()
 
-	logger.Infof("Server starting on port %s", cfg.Port)
-	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-		logger.Fatalf("Server failed to start: %v", err)
+	// Wait for interrupt signal to gracefully shutdown the server
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	// Graceful shutdown
+	logger.Info("Shutting down server...")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := server.Stop(ctx); err != nil {
+		logger.Error("Server forced to shutdown", zap.Error(err))
+		os.Exit(1)
 	}
 
-	logger.Info("Server stopped")
+	logger.Info("Server stopped gracefully")
 }
+
+func initializeLogger(environment string) (*zap.Logger, error) {
+	var config zap.Config
+	
+	if environment == "production" {
+		config = zap.NewProductionConfig()
+		config.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
+	} else {
+		config = zap.NewDevelopmentConfig()
+		config.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
+	}
+	
+	config.EncoderConfig.TimeKey = "timestamp"
+	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	
+	return config.Build()
+}
+
+func initializeDatabase(cfg *config.Config, logger *zap.Logger) (*sql.DB, error) {
+	// Build connection string from config
+	var dsn string
+	if cfg.DatabaseURL != "" {
+		dsn = cfg.DatabaseURL
+	} else {
+		dsn = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+			cfg.Database.Host,
+			cfg.Database.Port,
+			cfg.Database.User,
+			cfg.Database.Password,
+			cfg.Database.Name,
+		)
+	}
+
+	logger.Debug("Connecting to database...")
+	
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database connection: %w", err)
+	}
+
+	// Configure connection pool
+	db.SetMaxOpenConns(cfg.Database.MaxOpenConns)
+	db.SetMaxIdleConns(cfg.Database.MaxIdleConns)
+	db.SetConnMaxLifetime(cfg.Database.ConnMaxLifetime)
+
+	// Test connection
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := db.PingContext(ctx); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	logger.Info("Database connection established successfully")
+	return db, nil
+}
+
