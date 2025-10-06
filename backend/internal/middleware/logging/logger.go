@@ -1,38 +1,62 @@
 package logging
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
-// Logger creates a request logging middleware
-func Logger(logger *logrus.Logger) func(next http.Handler) http.Handler {
+// Logger is a middleware that logs HTTP requests using Zap logger
+func Logger(logger *zap.Logger) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
-			
-			// Wrap the response writer to capture status code
+
+			// Create a wrapped response writer to capture status code
 			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
-			
-			// Process request
+
+			defer func() {
+				duration := time.Since(start)
+				
+				logger.Info("HTTP request",
+					zap.String("method", r.Method),
+					zap.String("url", r.URL.String()),
+					zap.String("proto", r.Proto),
+					zap.String("remote_addr", r.RemoteAddr),
+					zap.String("user_agent", r.UserAgent()),
+					zap.Int("status", ww.Status()),
+					zap.Int("bytes", ww.BytesWritten()),
+					zap.Duration("duration", duration),
+					zap.String("request_id", middleware.GetReqID(r.Context())),
+				)
+			}()
+
 			next.ServeHTTP(ww, r)
-			
-			// Log request details
-			duration := time.Since(start)
-			
-			logger.WithFields(logrus.Fields{
-				"method":     r.Method,
-				"url":        r.URL.String(),
-				"status":     ww.Status(),
-				"bytes":      ww.BytesWritten(),
-				"duration":   duration.String(),
-				"remote_ip":  r.RemoteAddr,
-				"user_agent": r.UserAgent(),
-				"request_id": middleware.GetReqID(r.Context()),
-			}).Info("Request processed")
+		}
+		return http.HandlerFunc(fn)
+	}
+}
+
+// ErrorLogger logs errors with Zap
+func ErrorLogger(logger *zap.Logger) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		fn := func(w http.ResponseWriter, r *http.Request) {
+			defer func() {
+				if err := recover(); err != nil {
+					logger.Error("Panic recovered",
+						zap.Any("error", err),
+						zap.String("method", r.Method),
+						zap.String("url", r.URL.String()),
+						zap.String("request_id", middleware.GetReqID(r.Context())),
+					)
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				}
+			}()
+
+			next.ServeHTTP(w, r)
 		}
 		return http.HandlerFunc(fn)
 	}

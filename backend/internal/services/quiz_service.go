@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"log"
 
 	"genshin-quiz-backend/internal/models"
 	"genshin-quiz-backend/internal/repository"
@@ -9,9 +10,10 @@ import (
 
 type QuizService struct {
 	quizRepo *repository.QuizRepository
+	logger   *log.Logger
 }
 
-func NewQuizService(quizRepo *repository.QuizRepository) *QuizService {
+func NewQuizService(quizRepo *repository.QuizRepository, logger *log.Logger) *QuizService {
 	return &QuizService{
 		quizRepo: quizRepo,
 	}

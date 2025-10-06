@@ -14,10 +14,11 @@ import (
 )
 
 type QuizRepository struct {
-	db *database.DB
+	db     *sql.DB
+	logger *log.Logger
 }
 
-func NewQuizRepository(db *database.DB) *QuizRepository {
+func NewQuizRepository(db *sql.DB, logger *log.Logger) *QuizRepository {
 	return &QuizRepository{db: db}
 }
 

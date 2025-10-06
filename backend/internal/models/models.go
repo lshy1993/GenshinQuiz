@@ -1,7 +1,20 @@
 package models
 
 import (
+	"errors"
 	"time"
+)
+
+// Common errors
+var (
+	ErrUserNotFound = errors.New("user not found")
+	ErrQuizNotFound = errors.New("quiz not found")
+	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrUserAlreadyExists = errors.New("user already exists")
+	ErrQuizAlreadyExists = errors.New("quiz already exists")
+	ErrUnauthorized = errors.New("unauthorized")
+	ErrForbidden = errors.New("forbidden")
+	ErrInvalidInput = errors.New("invalid input")
 )
 
 // User represents a user in the system
@@ -9,6 +22,7 @@ type User struct {
 	ID               int64     `json:"id"`
 	Username         string    `json:"username"`
 	Email            string    `json:"email"`
+	PasswordHash     string    `json:"-"` // Never include in JSON responses
 	DisplayName      *string   `json:"display_name,omitempty"`
 	AvatarURL        *string   `json:"avatar_url,omitempty"`
 	TotalScore       int       `json:"total_score"`
@@ -21,6 +35,7 @@ type User struct {
 type CreateUserRequest struct {
 	Username    string  `json:"username" validate:"required,min=3,max=50"`
 	Email       string  `json:"email" validate:"required,email"`
+	Password    string  `json:"password" validate:"required,min=8"`
 	DisplayName *string `json:"display_name,omitempty" validate:"omitempty,max=100"`
 	AvatarURL   *string `json:"avatar_url,omitempty" validate:"omitempty,url"`
 }

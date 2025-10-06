@@ -1,0 +1,170 @@
+version: '3'
+
+vars:
+  BINARY_NAME: genshin-quiz
+  VERSION: '{{.VERSION | default "dev"}}'
+  BUILD_TIME: '{{now | date "2006-01-02T15:04:05Z07:00"}}'
+
+env:
+  CGO_ENABLED: 0
+  GOOS: '{{.GOOS | default "linux"}}'
+  GOARCH: '{{.GOARCH | default "amd64"}}'
+
+tasks:
+  # 清理任务
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -rf bin/
+      - go clean -cache
+
+  # 安装依赖
+  deps:
+    desc: Download and tidy dependencies
+    cmds:
+      - go mod download
+      - go mod tidy
+
+  # 代码格式化
+  fmt:
+    desc: Format code
+    cmds:
+      - go fmt ./...
+
+  # 代码检查
+  lint:
+    desc: Run linter
+    cmds:
+      - golangci-lint run
+
+  # 测试
+  test:
+    desc: Run tests
+    cmds:
+      - go test -v -race -coverprofile=coverage.out ./...
+
+  test:unit:
+    desc: Run unit tests only
+    cmds:
+      - go test -v -short ./...
+
+  test:integration:
+    desc: Run integration tests
+    cmds:
+      - go test -v -run Integration ./...
+
+  # 构建所有服务
+  build:
+    desc: Build all services
+    deps: [clean, deps]
+    cmds:
+      - task: build:server
+      - task: build:worker
+      - task: build:cronjob
+      - task: build:console
+      - task: build:migration
+
+  # 构建单个服务
+  build:server:
+    desc: Build server service
+    cmds:
+      - mkdir -p bin/
+      - go build -ldflags "-X main.version={{.VERSION}} -X main.buildTime={{.BUILD_TIME}}" -o bin/server ./cmd/server
+
+  build:worker:
+    desc: Build worker service
+    cmds:
+      - mkdir -p bin/
+      - go build -ldflags "-X main.version={{.VERSION}} -X main.buildTime={{.BUILD_TIME}}" -o bin/worker ./cmd/worker
+
+  build:cronjob:
+    desc: Build cronjob service
+    cmds:
+      - mkdir -p bin/
+      - go build -ldflags "-X main.version={{.VERSION}} -X main.buildTime={{.BUILD_TIME}}" -o bin/cronjob ./cmd/cronjob
+
+  build:console:
+    desc: Build console service
+    cmds:
+      - mkdir -p bin/
+      - go build -ldflags "-X main.version={{.VERSION}} -X main.buildTime={{.BUILD_TIME}}" -o bin/console ./cmd/console
+
+  build:migration:
+    desc: Build migration service
+    cmds:
+      - mkdir -p bin/
+      - go build -ldflags "-X main.version={{.VERSION}} -X main.buildTime={{.BUILD_TIME}}" -o bin/migration ./cmd/migration
+
+  # Docker 构建
+  docker:build:
+    desc: Build Docker images for all services
+    cmds:
+      - docker build -t {{.BINARY_NAME}}-server:{{.VERSION}} -f deployments/docker/server/Dockerfile .
+      - docker build -t {{.BINARY_NAME}}-worker:{{.VERSION}} -f deployments/docker/worker/Dockerfile .
+      - docker build -t {{.BINARY_NAME}}-cronjob:{{.VERSION}} -f deployments/docker/cronjob/Dockerfile .
+      - docker build -t {{.BINARY_NAME}}-console:{{.VERSION}} -f deployments/docker/console/Dockerfile .
+      - docker build -t {{.BINARY_NAME}}-migration:{{.VERSION}} -f deployments/docker/migration/Dockerfile .
+
+  # 本地开发
+  dev:server:
+    desc: Run server in development mode
+    cmds:
+      - go run ./cmd/server
+
+  dev:worker:
+    desc: Run worker in development mode
+    cmds:
+      - go run ./cmd/worker
+
+  dev:cronjob:
+    desc: Run cronjob in development mode
+    cmds:
+      - go run ./cmd/cronjob
+
+  # 数据库迁移
+  migrate:up:
+    desc: Run database migrations
+    cmds:
+      - go run ./cmd/migration up
+
+  migrate:down:
+    desc: Rollback database migrations
+    cmds:
+      - go run ./cmd/migration down
+
+  migrate:create:
+    desc: Create new migration file
+    cmds:
+      - go run ./cmd/migration create {{.CLI_ARGS}}
+
+  # 生成代码
+  generate:
+    desc: Generate code from OpenAPI spec
+    cmds:
+      - go run ./scripts/generate_api.go
+      - go run ./scripts/generate_models.go
+
+  # 部署
+  deploy:dev:
+    desc: Deploy to development environment
+    cmds:
+      - helm upgrade --install {{.BINARY_NAME}}-dev ./deployments/helm --namespace dev --create-namespace
+
+  deploy:prod:
+    desc: Deploy to production environment
+    cmds:
+      - helm upgrade --install {{.BINARY_NAME}} ./deployments/helm --namespace production --create-namespace
+
+  # 启动本地开发环境
+  up:
+    desc: Start local development environment
+    cmds:
+      - docker-compose up -d postgres redis
+      - task: migrate:up
+      - task: dev:server
+
+  # 停止本地开发环境
+  down:
+    desc: Stop local development environment
+    cmds:
+      - docker-compose down

@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.21-alpine AS builder
+FROM golang:1.25.0-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -8,45 +8,57 @@ WORKDIR /app
 RUN apk add --no-cache git
 
 # Copy go mod files
-COPY go.mod ./
+COPY go.mod go.sum ./
 
-# Copy source code first to resolve dependencies
+# Download dependencies
+RUN go mod download
+
+# Copy source code
 COPY . .
 
-# Download dependencies and tidy modules
-RUN go mod download
-RUN go mod tidy
+# Build arguments for service selection
+ARG SERVICE=server
+ARG VERSION=dev
+ARG BUILD_TIME=""
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
+# Build the specific service
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-w -s -X main.version=${VERSION} -X main.buildTime=${BUILD_TIME}" \
+    -o /bin/app ./cmd/${SERVICE}
 
 # Final stage
-FROM alpine:latest
+FROM alpine:3.18
 
-# Install ca-certificates for HTTPS requests and curl for health checks
-RUN apk --no-cache add ca-certificates tzdata curl
+# Install ca-certificates for HTTPS requests
+RUN apk --no-cache add ca-certificates tzdata
 
-# Set timezone
-ENV TZ=UTC
+# Create app user
+RUN addgroup -g 1001 appgroup && adduser -u 1001 -G appgroup -s /bin/sh -D appuser
 
-# Create non-root user
-RUN addgroup -g 1001 -S appgroup && \
-    adduser -u 1001 -S appuser -G appgroup
-
+# Set working directory
 WORKDIR /app
 
 # Copy the binary from builder stage
-COPY --from=builder /app/main .
+COPY --from=builder /bin/app /app/app
 
-# Copy migration files if they exist
+# Copy migrations if needed (for migration service)
 COPY --from=builder /app/migrations ./migrations
 
-# Change ownership to non-root user
+# Change ownership to app user
 RUN chown -R appuser:appgroup /app
+
+# Switch to app user
 USER appuser
 
-# Expose port
+# Expose port (default for server)
 EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD ["/app/app", "--health-check"] || exit 1
+
+# Run the binary
+ENTRYPOINT ["/app/app"]
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \

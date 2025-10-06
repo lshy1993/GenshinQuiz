@@ -2,11 +2,13 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
+	"github.com/getsentry/sentry-go"
 
 	"genshin-quiz-backend/internal/models"
 	"genshin-quiz-backend/internal/services"
@@ -14,11 +16,13 @@ import (
 
 type QuizHandler struct {
 	quizService *services.QuizService
+	logger      *log.Logger
 }
 
-func NewQuizHandler(quizService *services.QuizService) *QuizHandler {
+func NewQuizHandler(quizService *services.QuizService, logger *log.Logger) *QuizHandler {
 	return &QuizHandler{
 		quizService: quizService,
+		logger:      logger,
 	}
 }
 
@@ -46,6 +50,8 @@ func (h *QuizHandler) GetQuizzes(w http.ResponseWriter, r *http.Request) {
 	// Get quizzes
 	result, err := h.quizService.GetQuizzes(limit, offset, category, difficulty)
 	if err != nil {
+		h.logger.Printf("failed to get quizzes: %v", err)
+		sentry.CaptureException(err)
 		h.renderError(w, r, http.StatusBadRequest, "Failed to get quizzes", err.Error())
 		return
 	}

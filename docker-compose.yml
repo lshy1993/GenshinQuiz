@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   swagger-editor:
     image: swaggerapi/swagger-editor
@@ -11,6 +13,7 @@ services:
     container_name: frontend
     build:
       context: ./frontend
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     volumes:
@@ -18,7 +21,8 @@ services:
       - /app/node_modules
       - ./backend/openapi:/app/openapi # 挂载 openapi 文件夹
     environment:
-      - CHOKIDAR_USEPOLLING=true
+      VITE_API_URL: http://localhost:8080/api/v1
+      CHOKIDAR_USEPOLLING: true
     depends_on:
       - backend
     command: /bin/sh -c "bunx orval --config orval.config.json && bun run dev" # 运行 Orval 生成代码然后启动 Bun 开发服务器
@@ -29,7 +33,10 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    restart: unless-stopped
+      args:
+        SERVICE: server
+        VERSION: ${VERSION:-dev}
+        BUILD_TIME: ${BUILD_TIME}
     ports:
       - "8080:8080"
     volumes:
@@ -41,12 +48,16 @@ services:
       DATABASE_URL: postgres://postgres:postgres@database:5432/genshinquiz?sslmode=disable
       PORT: 8080
       ENVIRONMENT: development
-      JWT_SECRET: your-super-secret-jwt-key
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
       DB_USER: postgres
       DB_PASSWORD: postgres
       DB_HOST: database
       DB_PORT: 5432
       DB_NAME: genshinquiz
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      AZURE_STORAGE_ACCOUNT: ${AZURE_STORAGE_ACCOUNT:-}
+      AZURE_STORAGE_KEY: ${AZURE_STORAGE_KEY:-}
+      AZURE_CONTAINER_NAME: ${AZURE_CONTAINER_NAME:-genshin-quiz}
     healthcheck:
       test:
         [
@@ -62,33 +73,14 @@ services:
       timeout: 10s
       start_period: 10s
 
-  # Database Migration Service (runs once)
-  migrator:
-    image: golang:1.23-alpine
-    working_dir: /app
-    volumes:
-      - ./backend:/app
-    environment:
-      DATABASE_URL: postgres://postgres:postgres@database:5432/genshinquiz?sslmode=disable
-    depends_on:
-      database:
-        condition: service_healthy
-    command: >
-      sh -c "
-        echo 'Installing goose...' &&
-        go install github.com/pressly/goose/v3/cmd/goose@latest &&
-        echo 'Running migrations...' &&
-        goose -dir ./migrations postgres 'postgres://postgres:postgres@database:5432/genshinquiz?sslmode=disable' up &&
-        echo 'Migrations completed!'
-      "
-
+  # PostgreSQL Database
   database:
     container_name: postgres
-    image: postgres:16-alpine
+    image: postgres:16.4-alpine
     restart: unless-stopped
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
     environment:
@@ -96,10 +88,10 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: genshinquiz
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "pg_isready -U postgres -d genshinquiz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   db_data:
