@@ -6,10 +6,10 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	
-	"genshin-quiz-backend/internal/models"
-	"genshin-quiz-backend/internal/services"
-	"genshin-quiz-backend/internal/webserver/middleware/error"
+
+	"genshin-quiz/internal/models"
+	"genshin-quiz/internal/services"
+	"genshin-quiz/internal/webserver/middleware/error"
 )
 
 // UserHandler implements the OpenAPI generated interface
@@ -90,7 +90,7 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 // CreateUser handles POST /api/v1/users
 func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var req models.CreateUserRequest
-	
+
 	// Parse request body
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		error.WriteErrorResponse(w, http.StatusBadRequest, "Invalid request body", "INVALID_REQUEST_BODY", err.Error())
@@ -130,7 +130,7 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req models.UpdateUserRequest
-	
+
 	// Parse request body
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		error.WriteErrorResponse(w, http.StatusBadRequest, "Invalid request body", "INVALID_REQUEST_BODY", err.Error())
@@ -186,7 +186,7 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 // Login handles POST /api/v1/auth/login
 func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req models.LoginRequest
-	
+
 	// Parse request body
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		error.WriteErrorResponse(w, http.StatusBadRequest, "Invalid request body", "INVALID_REQUEST_BODY", err.Error())
@@ -213,7 +213,7 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 // Register handles POST /api/v1/auth/register
 func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req models.RegisterRequest
-	
+
 	// Parse request body
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		error.WriteErrorResponse(w, http.StatusBadRequest, "Invalid request body", "INVALID_REQUEST_BODY", err.Error())

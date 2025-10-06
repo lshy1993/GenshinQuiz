@@ -1,53 +1,54 @@
-# Binaries for programs and plugins
+ehthumbs.db
+########################################
+# Go backend ignore
+########################################
+# Go build
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
-
-# Test binary, built with `go test -c`
 *.test
-
-# Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
-# Dependency directories (remove the comment below to include it)
+# Go modules/tools
 vendor/
-
-# Go workspace file
 go.work
+bin/
+tools.txt
 
-# IDE and editor files
+# IDE/editor
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS generated files
+# OS files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
-# Environment variables
+# 环境变量
 .env
-.env.local
-.env.production
+.env.*
+!.env.example
 
-# Logs
+# 日志
 *.log
 logs/
 
-# Generated files
+# 代码生成/临时
 internal/generated/
 internal/models/generated/
-
-# Temporary files
 tmp/
+*.tmp
+
+# 数据库迁移工具
+migrations/*.lock
+
+# Docker（如有需要可忽略 Dockerfile）
+# Dockerfile
+# docker-compose.yml
 temp/
 
 # Air live reload

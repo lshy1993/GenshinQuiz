@@ -6,8 +6,10 @@ import (
 	"strconv"
 	"time"
 
-	"genshin-quiz-backend/internal/models"
-	"genshin-quiz-backend/internal/services"
+	"genshin-quiz/internal/models"
+	"genshin-quiz/internal/services"
+
+	"go.uber.org/zap"
 )
 
 // CommandHandler handles console commands
@@ -70,13 +72,13 @@ func (h *CommandHandler) seedDatabase() error {
 	for _, userReq := range sampleUsers {
 		user, err := h.userService.CreateUser(userReq)
 		if err != nil {
-			h.logger.Error("Failed to create sample user", 
+			h.logger.Error("Failed to create sample user",
 				zap.String("username", userReq.Username),
 				zap.Error(err),
 			)
 			continue
 		}
-		h.logger.Info("Created sample user", 
+		h.logger.Info("Created sample user",
 			zap.String("username", user.Username),
 			zap.Int64("id", user.ID),
 		)
@@ -135,13 +137,13 @@ func (h *CommandHandler) seedDatabase() error {
 	for _, quizReq := range sampleQuizzes {
 		quiz, err := h.quizService.CreateQuiz(quizReq)
 		if err != nil {
-			h.logger.Error("Failed to create sample quiz", 
+			h.logger.Error("Failed to create sample quiz",
 				zap.String("title", quizReq.Title),
 				zap.Error(err),
 			)
 			continue
 		}
-		h.logger.Info("Created sample quiz", 
+		h.logger.Info("Created sample quiz",
 			zap.String("title", quiz.Title),
 			zap.Int64("id", quiz.ID),
 		)
@@ -241,10 +243,10 @@ func (h *CommandHandler) listUsers() error {
 	fmt.Println("--------------------------------------------------------------------")
 
 	for _, user := range response.Data {
-		fmt.Printf("%-5d %-20s %-30s %-20s\n", 
-			user.ID, 
-			user.Username, 
-			user.Email, 
+		fmt.Printf("%-5d %-20s %-30s %-20s\n",
+			user.ID,
+			user.Username,
+			user.Email,
 			user.CreatedAt.Format("2006-01-02 15:04"),
 		)
 	}
@@ -307,11 +309,11 @@ func (h *CommandHandler) listQuizzes() error {
 	fmt.Println("--------------------------------------------------------------------------------")
 
 	for _, quiz := range response.Data {
-		fmt.Printf("%-5d %-30s %-15s %-10s %-20s\n", 
-			quiz.ID, 
-			quiz.Title, 
-			quiz.Category, 
-			quiz.Difficulty, 
+		fmt.Printf("%-5d %-30s %-15s %-10s %-20s\n",
+			quiz.ID,
+			quiz.Title,
+			quiz.Category,
+			quiz.Difficulty,
 			quiz.CreatedAt.Format("2006-01-02 15:04"),
 		)
 	}

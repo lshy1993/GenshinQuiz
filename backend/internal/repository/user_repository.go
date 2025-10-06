@@ -8,8 +8,8 @@ import (
 	"github.com/go-jet/jet/v2/postgres"
 	"golang.org/x/crypto/bcrypt"
 
-	"genshin-quiz-backend/internal/models"
-	"genshin-quiz-backend/internal/table"
+	"genshin-quiz/internal/models"
+	"genshin-quiz/internal/table"
 )
 
 type UserRepository struct {

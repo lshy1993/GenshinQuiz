@@ -8,9 +8,8 @@ import (
 	"github.com/go-jet/jet/v2/postgres"
 	"github.com/lib/pq"
 
-	"genshin-quiz-backend/internal/database"
-	"genshin-quiz-backend/internal/models"
-	"genshin-quiz-backend/internal/table"
+	"genshin-quiz/internal/models"
+	"genshin-quiz/internal/table"
 )
 
 type QuizRepository struct {

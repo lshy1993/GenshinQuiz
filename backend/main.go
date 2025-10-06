@@ -15,9 +15,9 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"genshin-quiz-backend/config"
-	"genshin-quiz-backend/internal/database"
-	"genshin-quiz-backend/internal/webserver"
+	"genshin-quiz/config"
+	"genshin-quiz/internal/database"
+	"genshin-quiz/internal/webserver"
 )
 
 func main() {
@@ -90,7 +90,7 @@ func main() {
 
 func initializeLogger(environment string) (*zap.Logger, error) {
 	var config zap.Config
-	
+
 	if environment == "production" {
 		config = zap.NewProductionConfig()
 		config.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
@@ -98,10 +98,10 @@ func initializeLogger(environment string) (*zap.Logger, error) {
 		config = zap.NewDevelopmentConfig()
 		config.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	}
-	
+
 	config.EncoderConfig.TimeKey = "timestamp"
 	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	
+
 	return config.Build()
 }
 
@@ -121,7 +121,7 @@ func initializeDatabase(cfg *config.Config, logger *zap.Logger) (*sql.DB, error)
 	}
 
 	logger.Debug("Connecting to database...")
-	
+
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database connection: %w", err)
@@ -144,4 +144,3 @@ func initializeDatabase(cfg *config.Config, logger *zap.Logger) (*sql.DB, error)
 	logger.Info("Database connection established successfully")
 	return db, nil
 }
-

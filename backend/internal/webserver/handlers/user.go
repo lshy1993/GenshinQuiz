@@ -8,8 +8,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 
-	"genshin-quiz-backend/internal/models"
-	"genshin-quiz-backend/internal/services"
+	"genshin-quiz/internal/models"
+	"genshin-quiz/internal/services"
 )
 
 type UserHandler struct {

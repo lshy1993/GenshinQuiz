@@ -72,10 +72,6 @@ CREATE INDEX idx_quiz_attempts_quiz_id ON quiz_attempts(quiz_id);
 CREATE INDEX idx_user_answers_attempt_id ON user_answers(attempt_id);
 CREATE INDEX idx_user_answers_question_id ON user_answers(question_id);
 
--- Create triggers for updated_at columns
-CREATE TRIGGER update_quizzes_updated_at BEFORE UPDATE ON quizzes FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_questions_updated_at BEFORE UPDATE ON questions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
 -- +goose Down
 DROP TRIGGER IF EXISTS update_questions_updated_at ON questions;
 DROP TRIGGER IF EXISTS update_quizzes_updated_at ON quizzes;

@@ -5,16 +5,15 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 
-	"genshin-quiz-backend/internal/config"
-	"genshin-quiz-backend/internal/cron"
-	"genshin-quiz-backend/internal/infrastructure"
-	"genshin-quiz-backend/internal/repository"
-	"genshin-quiz-backend/internal/services"
+	"genshin-quiz/internal/config"
+	"genshin-quiz/internal/cron"
+	"genshin-quiz/internal/infrastructure"
+	"genshin-quiz/internal/repository"
+	"genshin-quiz/internal/services"
 )
 
 var (

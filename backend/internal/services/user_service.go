@@ -6,8 +6,8 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"genshin-quiz-backend/internal/models"
-	"genshin-quiz-backend/internal/repository"
+	"genshin-quiz/internal/models"
+	"genshin-quiz/internal/repository"
 )
 
 type UserService struct {

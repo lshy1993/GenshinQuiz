@@ -16,13 +16,13 @@ import (
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 
-	"genshin-quiz-backend/internal/config"
-	"genshin-quiz-backend/internal/handlers"
-	"genshin-quiz-backend/internal/infrastructure"
-	"genshin-quiz-backend/internal/middleware/auth"
-	"genshin-quiz-backend/internal/middleware/logging"
-	"genshin-quiz-backend/internal/repository"
-	"genshin-quiz-backend/internal/services"
+	"genshin-quiz/internal/config"
+	"genshin-quiz/internal/handlers"
+	"genshin-quiz/internal/infrastructure"
+	"genshin-quiz/internal/middleware/auth"
+	"genshin-quiz/internal/middleware/logging"
+	"genshin-quiz/internal/repository"
+	"genshin-quiz/internal/services"
 )
 
 var (

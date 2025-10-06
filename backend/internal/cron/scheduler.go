@@ -1,14 +1,14 @@
 package cron
 
 import (
-	"context"
+	"log"
 	"time"
 
 	"github.com/hibiken/asynq"
 	"go.uber.org/zap"
 
-	"genshin-quiz-backend/internal/services"
-	"genshin-quiz-backend/internal/tasks"
+	"genshin-quiz/internal/services"
+	"genshin-quiz/internal/tasks"
 )
 
 // Scheduler handles scheduled tasks
@@ -59,7 +59,7 @@ func (s *Scheduler) runDailyUserStatisticsUpdate() {
 		select {
 		case <-ticker.C:
 			s.logger.Info("Running daily user statistics update")
-			
+
 			if err := s.performDailyUserStatisticsUpdate(); err != nil {
 				s.logger.Error("Failed to perform daily user statistics update", zap.Error(err))
 			}
@@ -89,7 +89,7 @@ func (s *Scheduler) runWeeklyQuizAnalytics() {
 		select {
 		case <-ticker.C:
 			s.logger.Info("Running weekly quiz analytics")
-			
+
 			if err := s.performWeeklyQuizAnalytics(); err != nil {
 				s.logger.Error("Failed to perform weekly quiz analytics", zap.Error(err))
 			}
@@ -118,7 +118,7 @@ func (s *Scheduler) runDailyDataCleanup() {
 		select {
 		case <-ticker.C:
 			s.logger.Info("Running daily data cleanup")
-			
+
 			if err := s.performDailyDataCleanup(); err != nil {
 				s.logger.Error("Failed to perform daily data cleanup", zap.Error(err))
 			}
@@ -139,7 +139,7 @@ func (s *Scheduler) runHourlyHealthCheck() {
 		select {
 		case <-ticker.C:
 			s.logger.Info("Running hourly health check")
-			
+
 			if err := s.performHealthCheck(); err != nil {
 				s.logger.Error("Health check failed", zap.Error(err))
 			}
@@ -160,7 +160,7 @@ func (s *Scheduler) performDailyUserStatisticsUpdate() error {
 	// 4. Queue individual user statistics update tasks
 
 	taskClient := tasks.NewClient(s.taskClient)
-	
+
 	// Example: Queue user statistics update for all active users
 	data := map[string]interface{}{
 		"type": "daily_update",
@@ -179,9 +179,9 @@ func (s *Scheduler) performWeeklyQuizAnalytics() error {
 	// 4. Calculate popular quizzes
 
 	taskClient := tasks.NewClient(s.taskClient)
-	
+
 	data := map[string]interface{}{
-		"type":      "weekly_analytics",
+		"type":       "weekly_analytics",
 		"week_start": time.Now().AddDate(0, 0, -7).Format("2006-01-02"),
 		"week_end":   time.Now().Format("2006-01-02"),
 	}

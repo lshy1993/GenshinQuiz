@@ -11,11 +11,11 @@ import (
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 
-	"genshin-quiz-backend/internal/config"
-	"genshin-quiz-backend/internal/infrastructure"
-	"genshin-quiz-backend/internal/repository"
-	"genshin-quiz-backend/internal/services"
-	"genshin-quiz-backend/internal/tasks"
+	"genshin-quiz/internal/config"
+	"genshin-quiz/internal/infrastructure"
+	"genshin-quiz/internal/repository"
+	"genshin-quiz/internal/services"
+	"genshin-quiz/internal/tasks"
 )
 
 var (

@@ -3,8 +3,8 @@ package services
 import (
 	"fmt"
 
-	"genshin-quiz-backend/internal/models"
-	"genshin-quiz-backend/internal/repository"
+	"genshin-quiz/internal/models"
+	"genshin-quiz/internal/repository"
 )
 
 type QuizService struct {

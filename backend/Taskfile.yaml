@@ -91,13 +91,13 @@ tasks:
     desc: 'Run database migrations'
     silent: false
     cmds:
-      - ./bin/goose -dir db/migrations postgres "$DATABASE_URL" up
+      - ./bin/goose -dir migrations postgres "$DATABASE_URL" up
 
   db-migration-down:
     desc: 'Run database migrations'
     silent: false
     cmds:
-      - ./bin/goose -dir db/migrations postgres "$DATABASE_URL" down
+      - ./bin/goose -dir migrations postgres "$DATABASE_URL" down
 
   db-migration-down-step:
     desc: 'Run database migrations'
