@@ -1,170 +1,276 @@
 version: '3'
 
-vars:
-  BINARY_NAME: genshin-quiz
-  VERSION: '{{.VERSION | default "dev"}}'
-  BUILD_TIME: '{{now | date "2006-01-02T15:04:05Z07:00"}}'
-
 env:
-  CGO_ENABLED: 0
-  GOOS: '{{.GOOS | default "linux"}}'
-  GOARCH: '{{.GOARCH | default "amd64"}}'
+  ENV: local
+
+dotenv: ['.env.{{.ENV}}']
 
 tasks:
-  # 清理任务
-  clean:
-    desc: Clean build artifacts
+  default:
     cmds:
-      - rm -rf bin/
-      - go clean -cache
+      - task -l
+  init:
+    desc: 'Runs all init tasks'
+    silent: true
+    cmds:
+      - task init-env
+      - task init-tools
+      - task refresh
 
-  # 安装依赖
-  deps:
-    desc: Download and tidy dependencies
+  refresh:
+    desc: 'Refreshes the database and redis cache'
+    silent: true
     cmds:
-      - go mod download
+      - task db-refresh
+      - task redis-refresh
+
+  init-env:
+    desc: 'Initialize .env.local and .env.test'
+    silent: true
+    cmds:
+      - |
+        if [ ! -f .env.local ]; then
+          cp .env.local.example .env.local
+        fi
+      - |
+        if [ ! -f .env.test ]; then
+          cp .env.test.example .env.test
+        fi
+
+  init-tools:
+    desc: 'Initialize the tools used by the project (from tools.txt)'
+    silent: true
+    cmds:
+      - |
+        if [ ! -d bin ]; then
+          mkdir bin
+        fi
+      - |
+        export GOBIN=${PWD}/bin
+        while read -r line; do
+          exec=$(basename $line)
+          exec=${exec%%@*}
+          if [ ! -f ${GOBIN}/$exec ]; then
+            echo "Installing tool $exec"
+            go install $line
+          fi
+        done < tools.txt
+
+  update-tools:
+    desc: 'Update the tools used by the project (from tools.txt)'
+    silent: true
+    cmds:
+      - rm -rf bin
+      - task init-tools
+
+  db-init:
+    desc: 'Create a fresh database'
+    silent: false
+    cmds:
+      - psql "postgresql://"$(echo $DATABASE_URL | cut -d/ -f3) -c "DROP DATABASE IF EXISTS \"${DATABASE_NAME}\" WITH (FORCE);"
+      - psql "postgresql://"$(echo $DATABASE_URL | cut -d/ -f3) -c "CREATE DATABASE \"${DATABASE_NAME}\";"
+
+  db-refresh:
+    desc: 'Create a fresh database and run migrations'
+    silent: true
+    cmds:
+      - task db-init
+      - task db-migration-up
+
+  db-refresh-test:
+    desc: 'Create a fresh database and run migrations (for test environment))'
+    silent: true
+    env:
+      ENV: testing
+    dotenv: ['.env.test']
+    cmds:
+      - task db-init
+      - task db-migration-up
+
+  db-migration-up:
+    desc: 'Run database migrations'
+    silent: false
+    cmds:
+      - ./bin/goose -dir db/migrations postgres "$DATABASE_URL" up
+
+  db-migration-down:
+    desc: 'Run database migrations'
+    silent: false
+    cmds:
+      - ./bin/goose -dir db/migrations postgres "$DATABASE_URL" down
+
+  db-migration-down-step:
+    desc: 'Run database migrations'
+    silent: false
+    vars:
+      steps: 1
+    cmds:
+      - ./bin/goose -dir db/migrations postgres "$DATABASE_URL" down {{.steps}}
+
+  db-migration-status:
+    desc: 'Show database migration status'
+    silent: false
+    cmds:
+      - ./bin/goose -dir db/migrations postgres "$DATABASE_URL" status
+
+  db-migration-new:
+    desc: 'Create a new database migration'
+    silent: false
+    requires:
+      vars: [MIGRATION_NAME]
+    cmds:
+      - printf "-- +goose Up\n-- +goose StatementBegin\n\n\n\n-- +goose StatementEnd\n-- +goose Down\n-- +goose StatementBegin\n\n\n\n-- +goose StatementEnd\n" > db/migrations/$(printf "%05d" $(expr $(ls db/migrations | wc -l) + 1))_$(echo $MIGRATION_NAME).sql
+
+  codegen-db-models:
+    desc: 'Generate database models'
+    silent: true
+    cmds:
+      - ./bin/jet -dsn="$DATABASE_URL" -schema=public -path=./generated/db
+
+  codegen-openapi:
+    desc: 'Generate openapi spec'
+    silent: true
+    cmds:
+      - ./bin/oapi-codegen -config ./oapi-codegen.yaml $OPENAPI_SPEC
+
+  codegen:
+    desc: 'Update database models'
+    silent: true
+    cmds:
+      - task codegen-openapi
+      - task codegen-db-models
+      - task format
+      - task lint-fix
+
+  update-dependencies:
+    desc: 'Update dependencies'
+    silent: true
+    cmds:
+      - go get -u ./...
       - go mod tidy
 
-  # 代码格式化
-  fmt:
-    desc: Format code
+  format:
+    desc: 'Format all files'
+    silent: false
     cmds:
-      - go fmt ./...
+      - ./bin/goimports -w .
+      - gofmt -w .
+      - ./bin/golines -w .
 
-  # 代码检查
+  format-check:
+    desc: 'Check if all files are formatted'
+    silent: false
+    cmds:
+      - |
+        if [ -n "$(./bin/goimports -l .)" ]; then
+          echo "Go code is not goimports-ed:"
+          ./bin/goimports -l .
+          echo "Run 'task format' to fix"
+          exit 1
+        fi
+        if [ -n "$(gofmt -l .)" ]; then
+          echo "Go code is not gofmt-ed:"
+          gofmt -l .
+          echo "Run 'task format' to fix"
+          exit 1
+        fi
+        if [ -n "$(./bin/golines -l .)" ]; then
+          echo "Go code is not golines-ed:"
+          ./bin/golines -l .
+          echo "Run 'task format' to fix"
+          exit 1
+        fi
+        echo "All files are formatted correctly."
+
   lint:
-    desc: Run linter
+    desc: 'Lint all files'
+    silent: false
     cmds:
-      - golangci-lint run
+      - ./bin/golangci-lint run -c .golangci.yml
 
-  # 测试
+  lint-fix:
+    desc: 'Lint all files and fix issues'
+    silent: false
+    cmds:
+      - ./bin/golangci-lint run --fix -c .golangci.yml
+
   test:
-    desc: Run tests
+    desc: 'Run all tests'
+    silent: false
+    env:
+      ENV: testing
+    dotenv: ['.env.test']
     cmds:
-      - go test -v -race -coverprofile=coverage.out ./...
+      - task db-refresh-test
+      - go test -v  ./test/...
 
-  test:unit:
-    desc: Run unit tests only
+  test-coverage:
+    desc: 'Run all tests and generate coverage report'
+    silent: false
+    env:
+      ENV: testing
+    dotenv: ['.env.test']
     cmds:
-      - go test -v -short ./...
+      - task db-refresh-test
+      - go test --cover -covermode=count -coverpkg=./...  ./test/... -coverprofile=cover.out
+      - go tool cover -html=cover.out
 
-  test:integration:
-    desc: Run integration tests
+  redis-refresh:
+    desc: 'Refresh redis cache'
+    silent: false
     cmds:
-      - go test -v -run Integration ./...
+      - redis-cli -h $(echo $REDIS_HOST) -p $(echo $REDIS_PORT) flushall
 
-  # 构建所有服务
-  build:
-    desc: Build all services
-    deps: [clean, deps]
+  redis-refresh-test:
+    desc: 'Refresh redis cache (for test environment)'
+    silent: false
     cmds:
-      - task: build:server
-      - task: build:worker
-      - task: build:cronjob
-      - task: build:console
-      - task: build:migration
+      - redis-cli -h $(echo $REDIS_HOST) -p $(echo $REDIS_PORT) flushall
 
-  # 构建单个服务
-  build:server:
-    desc: Build server service
+  routes:
+    desc: 'List all routes'
+    silent: false
     cmds:
-      - mkdir -p bin/
-      - go build -ldflags "-X main.version={{.VERSION}} -X main.buildTime={{.BUILD_TIME}}" -o bin/server ./cmd/server
+      - go run ./cmd/server/main.go routes:list
 
-  build:worker:
-    desc: Build worker service
+  run:
+    desc: 'Run the server'
+    silent: true
     cmds:
-      - mkdir -p bin/
-      - go build -ldflags "-X main.version={{.VERSION}} -X main.buildTime={{.BUILD_TIME}}" -o bin/worker ./cmd/worker
+      - |
+        # echo "Starting server and worker, press Ctrl+C to stop..."
+        # trap 'kill 0' EXIT 
+        # MODE=default task run-worker & task run-server & MODE=low task run-worker
+        # wait
+        go run ./cmd/server/main.go
 
-  build:cronjob:
-    desc: Build cronjob service
+  run-worker:
+    desc: 'Run the worker'
+    silent: true
     cmds:
-      - mkdir -p bin/
-      - go build -ldflags "-X main.version={{.VERSION}} -X main.buildTime={{.BUILD_TIME}}" -o bin/cronjob ./cmd/cronjob
+      - go run ./cmd/worker/main.go {{.MODE}}
 
-  build:console:
-    desc: Build console service
+  run-server:
+    desc: 'Run the server'
+    silent: true
     cmds:
-      - mkdir -p bin/
-      - go build -ldflags "-X main.version={{.VERSION}} -X main.buildTime={{.BUILD_TIME}}" -o bin/console ./cmd/console
+      - go run ./cmd/server/main.go
 
-  build:migration:
-    desc: Build migration service
+  run-fresh:
+    desc: 'Run the server and worker with a fresh database'
+    silent: true
     cmds:
-      - mkdir -p bin/
-      - go build -ldflags "-X main.version={{.VERSION}} -X main.buildTime={{.BUILD_TIME}}" -o bin/migration ./cmd/migration
+      - task refresh
+      - task run
 
-  # Docker 构建
-  docker:build:
-    desc: Build Docker images for all services
+  run-queue-monitor:
+    desc: 'Run the queue monitor'
+    silent: true
     cmds:
-      - docker build -t {{.BINARY_NAME}}-server:{{.VERSION}} -f deployments/docker/server/Dockerfile .
-      - docker build -t {{.BINARY_NAME}}-worker:{{.VERSION}} -f deployments/docker/worker/Dockerfile .
-      - docker build -t {{.BINARY_NAME}}-cronjob:{{.VERSION}} -f deployments/docker/cronjob/Dockerfile .
-      - docker build -t {{.BINARY_NAME}}-console:{{.VERSION}} -f deployments/docker/console/Dockerfile .
-      - docker build -t {{.BINARY_NAME}}-migration:{{.VERSION}} -f deployments/docker/migration/Dockerfile .
+      - ./bin/asynqmon
 
-  # 本地开发
-  dev:server:
-    desc: Run server in development mode
+  run-cronjob:
+    desc: 'Run the cronjob'
+    silent: true
     cmds:
-      - go run ./cmd/server
-
-  dev:worker:
-    desc: Run worker in development mode
-    cmds:
-      - go run ./cmd/worker
-
-  dev:cronjob:
-    desc: Run cronjob in development mode
-    cmds:
-      - go run ./cmd/cronjob
-
-  # 数据库迁移
-  migrate:up:
-    desc: Run database migrations
-    cmds:
-      - go run ./cmd/migration up
-
-  migrate:down:
-    desc: Rollback database migrations
-    cmds:
-      - go run ./cmd/migration down
-
-  migrate:create:
-    desc: Create new migration file
-    cmds:
-      - go run ./cmd/migration create {{.CLI_ARGS}}
-
-  # 生成代码
-  generate:
-    desc: Generate code from OpenAPI spec
-    cmds:
-      - go run ./scripts/generate_api.go
-      - go run ./scripts/generate_models.go
-
-  # 部署
-  deploy:dev:
-    desc: Deploy to development environment
-    cmds:
-      - helm upgrade --install {{.BINARY_NAME}}-dev ./deployments/helm --namespace dev --create-namespace
-
-  deploy:prod:
-    desc: Deploy to production environment
-    cmds:
-      - helm upgrade --install {{.BINARY_NAME}} ./deployments/helm --namespace production --create-namespace
-
-  # 启动本地开发环境
-  up:
-    desc: Start local development environment
-    cmds:
-      - docker-compose up -d postgres redis
-      - task: migrate:up
-      - task: dev:server
-
-  # 停止本地开发环境
-  down:
-    desc: Stop local development environment
-    cmds:
-      - docker-compose down
+      - go run ./cmd/cronjob/main.go cronjob:every-five-minutes

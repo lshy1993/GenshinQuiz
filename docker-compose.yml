@@ -44,6 +44,8 @@ services:
     depends_on:
       database:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgres://postgres:postgres@database:5432/genshinquiz?sslmode=disable
       PORT: 8080
@@ -54,6 +56,9 @@ services:
       DB_HOST: database
       DB_PORT: 5432
       DB_NAME: genshinquiz
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
       SENTRY_DSN: ${SENTRY_DSN:-}
       AZURE_STORAGE_ACCOUNT: ${AZURE_STORAGE_ACCOUNT:-}
       AZURE_STORAGE_KEY: ${AZURE_STORAGE_KEY:-}
@@ -93,5 +98,22 @@ services:
       timeout: 10s
       retries: 3
 
+  # Redis Cache and Queue
+  redis:
+    container_name: redis
+    image: redis:7.2-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
   db_data:
+  redis_data:
