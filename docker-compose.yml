@@ -4,6 +4,7 @@ volumes:
   go_mods:
   go_tools:
   go_bin:
+  vite_deps:
 
 services:
   frontend:
@@ -17,17 +18,21 @@ services:
       - ./frontend:/app
       - /app/node_modules
       - ./backend/openapi:/app/openapi # 挂载 openapi 文件夹
+      - vite_deps:/app/node_modules/.vite # 挂载 Vite 依赖缓存
     environment:
       VITE_API_URL: http://localhost:8080/api/v1
       CHOKIDAR_USEPOLLING: true
     depends_on:
       - backend
-    command: /bin/sh -c "bun run dev:docker" # 使用 Docker 专用配置运行
+    command: /bin/sh -c "bun install && bun run dev:docker"
 
   # Go Backend API
   backend:
     image: golang:1.25
     container_name: go-backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     restart: unless-stopped
     ports:
       - "8080:8080"

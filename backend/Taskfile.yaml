@@ -25,12 +25,12 @@ tasks:
       - task redis-refresh
 
   init-env:
-    desc: 'Initialize .env.local and .env.test'
+    desc: 'Initialize .env.dev and .env.test'
     silent: true
     cmds:
       - |
-        if [ ! -f .env.local ]; then
-          cp .env.example .env.local
+        if [ ! -f .env.dev ]; then
+          cp .env.example .env.dev
         fi
       - |
         if [ ! -f .env.test ]; then

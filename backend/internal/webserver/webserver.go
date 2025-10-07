@@ -10,7 +10,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"github.com/go-chi/jwtauth/v5"
+
+	// "github.com/go-chi/jwtauth/v5" // 暂时注释掉，测试时不需要
 	"go.uber.org/zap"
 
 	"genshin-quiz/config"
@@ -71,23 +72,22 @@ func NewServer(app *config.App) *Server {
 		})
 	})
 
-	// Setup API routes with authentication (excluding health check)
-	r.Group(func(r chi.Router) {
-		r.Use(jwtauth.Verifier(app.JWTAuth))
-		r.Use(mw.Authenticator)
-
-		baseURL := "/api/v1"
-		serverOptions := oapi.StrictHTTPServerOptions{
-			RequestErrorHandlerFunc:  mw.HandleBadRequestError(app),
-			ResponseErrorHandlerFunc: mw.HandleResponseErrorWithLog(app),
-		}
-		strictHandler := oapi.NewStrictHandlerWithOptions(
-			handler.NewHandler(app),
-			[]oapi.StrictMiddlewareFunc{},
-			serverOptions,
-		)
-		oapi.HandlerFromMuxWithBaseURL(strictHandler, r, baseURL)
-	})
+	// Setup API routes without authentication (temporarily for testing)
+	// TODO: Add JWT authentication back for protected routes
+	// r.Group(func(r chi.Router) {
+	// 	r.Use(jwtauth.Verifier(app.JWTAuth))
+	// 	r.Use(mw.Authenticator)
+	baseURL := ""
+	serverOptions := oapi.StrictHTTPServerOptions{
+		RequestErrorHandlerFunc:  mw.HandleBadRequestError(app),
+		ResponseErrorHandlerFunc: mw.HandleResponseErrorWithLog(app),
+	}
+	strictHandler := oapi.NewStrictHandlerWithOptions(
+		handler.NewHandler(app),
+		[]oapi.StrictMiddlewareFunc{},
+		serverOptions,
+	)
+	oapi.HandlerFromMuxWithBaseURL(strictHandler, r, baseURL)
 
 	return &Server{
 		router:     r,
