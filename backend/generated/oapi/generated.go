@@ -332,9 +332,6 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
-	// HealthCheck request
-	HealthCheck(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// GetQuizzes request
 	GetQuizzes(ctx context.Context, params *GetQuizzesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -372,18 +369,6 @@ type ClientInterface interface {
 	UpdateUserWithBody(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateUser(ctx context.Context, id int64, body UpdateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-}
-
-func (c *Client) HealthCheck(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewHealthCheckRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
 }
 
 func (c *Client) GetQuizzes(ctx context.Context, params *GetQuizzesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -552,33 +537,6 @@ func (c *Client) UpdateUser(ctx context.Context, id int64, body UpdateUserJSONRe
 		return nil, err
 	}
 	return c.Client.Do(req)
-}
-
-// NewHealthCheckRequest generates requests for HealthCheck
-func NewHealthCheckRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/health")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
 }
 
 // NewGetQuizzesRequest generates requests for GetQuizzes
@@ -1096,9 +1054,6 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
-	// HealthCheckWithResponse request
-	HealthCheckWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthCheckResponse, error)
-
 	// GetQuizzesWithResponse request
 	GetQuizzesWithResponse(ctx context.Context, params *GetQuizzesParams, reqEditors ...RequestEditorFn) (*GetQuizzesResponse, error)
 
@@ -1136,30 +1091,6 @@ type ClientWithResponsesInterface interface {
 	UpdateUserWithBodyWithResponse(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateUserResponse, error)
 
 	UpdateUserWithResponse(ctx context.Context, id int64, body UpdateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserResponse, error)
-}
-
-type HealthCheckResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *struct {
-		Status *string `json:"status,omitempty"`
-	}
-}
-
-// Status returns HTTPResponse.Status
-func (r HealthCheckResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r HealthCheckResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
 }
 
 type GetQuizzesResponse struct {
@@ -1410,15 +1341,6 @@ func (r UpdateUserResponse) StatusCode() int {
 	return 0
 }
 
-// HealthCheckWithResponse request returning *HealthCheckResponse
-func (c *ClientWithResponses) HealthCheckWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthCheckResponse, error) {
-	rsp, err := c.HealthCheck(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseHealthCheckResponse(rsp)
-}
-
 // GetQuizzesWithResponse request returning *GetQuizzesResponse
 func (c *ClientWithResponses) GetQuizzesWithResponse(ctx context.Context, params *GetQuizzesParams, reqEditors ...RequestEditorFn) (*GetQuizzesResponse, error) {
 	rsp, err := c.GetQuizzes(ctx, params, reqEditors...)
@@ -1539,34 +1461,6 @@ func (c *ClientWithResponses) UpdateUserWithResponse(ctx context.Context, id int
 		return nil, err
 	}
 	return ParseUpdateUserResponse(rsp)
-}
-
-// ParseHealthCheckResponse parses an HTTP response from a HealthCheckWithResponse call
-func ParseHealthCheckResponse(rsp *http.Response) (*HealthCheckResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &HealthCheckResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			Status *string `json:"status,omitempty"`
-		}
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
 }
 
 // ParseGetQuizzesResponse parses an HTTP response from a GetQuizzesWithResponse call
@@ -1967,9 +1861,6 @@ func ParseUpdateUserResponse(rsp *http.Response) (*UpdateUserResponse, error) {
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Health check endpoint
-	// (GET /health)
-	HealthCheck(w http.ResponseWriter, r *http.Request)
 	// Get all quizzes
 	// (GET /quizzes)
 	GetQuizzes(w http.ResponseWriter, r *http.Request, params GetQuizzesParams)
@@ -2005,12 +1896,6 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
-
-// Health check endpoint
-// (GET /health)
-func (_ Unimplemented) HealthCheck(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
 
 // Get all quizzes
 // (GET /quizzes)
@@ -2080,20 +1965,6 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
-
-// HealthCheck operation middleware
-func (siw *ServerInterfaceWrapper) HealthCheck(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.HealthCheck(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
 
 // GetQuizzes operation middleware
 func (siw *ServerInterfaceWrapper) GetQuizzes(w http.ResponseWriter, r *http.Request) {
@@ -2473,9 +2344,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/health", wrapper.HealthCheck)
-	})
-	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/quizzes", wrapper.GetQuizzes)
 	})
 	r.Group(func(r chi.Router) {
@@ -2514,24 +2382,6 @@ type BadRequestJSONResponse Error
 type InternalServerErrorJSONResponse Error
 
 type NotFoundJSONResponse Error
-
-type HealthCheckRequestObject struct {
-}
-
-type HealthCheckResponseObject interface {
-	VisitHealthCheckResponse(w http.ResponseWriter) error
-}
-
-type HealthCheck200JSONResponse struct {
-	Status *string `json:"status,omitempty"`
-}
-
-func (response HealthCheck200JSONResponse) VisitHealthCheckResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
 
 type GetQuizzesRequestObject struct {
 	Params GetQuizzesParams
@@ -2915,9 +2765,6 @@ func (response UpdateUser500JSONResponse) VisitUpdateUserResponse(w http.Respons
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
-	// Health check endpoint
-	// (GET /health)
-	HealthCheck(ctx context.Context, request HealthCheckRequestObject) (HealthCheckResponseObject, error)
 	// Get all quizzes
 	// (GET /quizzes)
 	GetQuizzes(ctx context.Context, request GetQuizzesRequestObject) (GetQuizzesResponseObject, error)
@@ -2977,30 +2824,6 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
-}
-
-// HealthCheck operation middleware
-func (sh *strictHandler) HealthCheck(w http.ResponseWriter, r *http.Request) {
-	var request HealthCheckRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.HealthCheck(ctx, request.(HealthCheckRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "HealthCheck")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(HealthCheckResponseObject); ok {
-		if err := validResponse.VisitHealthCheckResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
 }
 
 // GetQuizzes operation middleware

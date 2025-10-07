@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	sentryhttp "github.com/getsentry/sentry-go/http"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -30,6 +31,13 @@ func NewServer(app *config.App) *Server {
 	// Basic middleware
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
+
+	// Sentry 中间件 - 用于自动错误跟踪
+	if app.Config.SentryDSN != "" {
+		sentryHandler := sentryhttp.New(sentryhttp.Options{})
+		r.Use(sentryHandler.Handle)
+	}
+
 	r.Use(mw.Logger(app.Logger))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
@@ -47,21 +55,28 @@ func NewServer(app *config.App) *Server {
 		MaxAge:           300,
 	}))
 
-	// Health check endpoint
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, err := w.Write([]byte(`{"status":"ok","timestamp":"` + time.Now().Format(time.RFC3339) + `"}`))
-		if err != nil {
-			app.Logger.Error("Failed to write health check response", zap.Error(err))
-		}
+	// Health check endpoint - 必须在 OpenAPI 路由之前定义，避免被覆盖
+	r.Route("/health", func(r chi.Router) {
+		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{"status":"ok","timestamp":"` + time.Now().Format(time.RFC3339) + `"}`))
+			if err != nil {
+				app.Logger.Error("Failed to write health check response", zap.Error(err))
+			}
+		})
+		r.Head("/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+		})
 	})
 
-	// Setup routes
+	// Setup API routes with authentication (excluding health check)
 	r.Group(func(r chi.Router) {
 		r.Use(jwtauth.Verifier(app.JWTAuth))
 		r.Use(mw.Authenticator)
 
-		baseURL := ""
+		baseURL := "/api/v1"
 		serverOptions := oapi.StrictHTTPServerOptions{
 			RequestErrorHandlerFunc:  mw.HandleBadRequestError(app),
 			ResponseErrorHandlerFunc: mw.HandleResponseErrorWithLog(app),

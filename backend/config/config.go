@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
-	sentryhttp "github.com/getsentry/sentry-go/http"
+	"github.com/getsentry/sentry-go"
 	"github.com/go-chi/jwtauth/v5"
 	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
@@ -24,7 +24,6 @@ type App struct {
 	DB      *sql.DB
 	Redis   *redis.Client
 	JWTAuth *jwtauth.JWTAuth
-	Sentry  *sentryhttp.Handler
 	Logger  *zap.Logger
 	Storage *azblob.SharedKeyCredential
 
@@ -105,13 +104,24 @@ func (app *App) initializeLogger() (*zap.Logger, error) {
 	if app.Config.Environment == "production" {
 		config = zap.NewProductionConfig()
 		config.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
+		// 生产环境不使用彩色输出
+		config.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 	} else {
 		config = zap.NewDevelopmentConfig()
 		config.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
+		// 开发环境使用彩色输出
+		config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	}
 
 	config.EncoderConfig.TimeKey = "timestamp"
 	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+
+	// 设置更友好的时间格式和颜色编码
+	if app.Config.Environment != "production" {
+		config.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("15:04:05.000")
+		// 使用短路径显示 caller 信息
+		config.EncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
+	}
 
 	logger, _ := config.Build()
 	// Set up defer immediately after logger is created
@@ -168,6 +178,31 @@ func (app *App) initializeDatabase() (*sql.DB, error) {
 	return db, nil
 }
 
+func (app *App) initializeSentry() error {
+	// 只在设置了 Sentry DSN 时才初始化
+	if app.Config.SentryDSN == "" {
+		app.Logger.Info("Sentry DSN not configured, skipping Sentry initialization")
+		return nil
+	}
+
+	err := sentry.Init(sentry.ClientOptions{
+		Dsn:         app.Config.SentryDSN,
+		Environment: app.Config.Environment,
+		Release:     app.Config.Version,
+		Debug:       app.Config.Environment == "development",
+		SampleRate:  1.0, // 在生产环境中可能需要调整采样率
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initialize Sentry: %w", err)
+	}
+
+	app.Logger.Info("Sentry initialized successfully",
+		zap.String("environment", app.Config.Environment),
+		zap.String("release", app.Config.Version),
+	)
+	return nil
+}
+
 func NewApp() *App {
 	app := &App{
 		Config: AppConfig{
@@ -208,6 +243,12 @@ func NewApp() *App {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
 	app.Logger = logger
+
+	err = app.initializeSentry()
+	if err != nil {
+		app.Logger.Error("Failed to initialize Sentry", zap.Error(err))
+		// 不要因为 Sentry 初始化失败而崩溃应用
+	}
 
 	db, err := app.initializeDatabase()
 	if err != nil {
