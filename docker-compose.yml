@@ -1,14 +1,11 @@
-version: "3.8"
+volumes:
+  postgres_data:
+  redis_data:
+  go_mods:
+  go_tools:
+  go_bin:
 
 services:
-  swagger-editor:
-    image: swaggerapi/swagger-editor
-    platform: linux/amd64
-    ports:
-      - "3020:8080"
-    volumes:
-      - ./backend/openapi:/mnt/swagger
-
   frontend:
     container_name: frontend
     build:
@@ -25,44 +22,45 @@ services:
       CHOKIDAR_USEPOLLING: true
     depends_on:
       - backend
-    command: /bin/sh -c "bunx orval --config orval.config.json && bun run dev" # 运行 Orval 生成代码然后启动 Bun 开发服务器
+    command: /bin/sh -c "bun run dev:docker" # 使用 Docker 专用配置运行
 
   # Go Backend API
   backend:
+    image: golang:1.25
     container_name: go-backend
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      args:
-        SERVICE: server
-        VERSION: ${VERSION:-dev}
-        BUILD_TIME: ${BUILD_TIME}
+    restart: unless-stopped
     ports:
       - "8080:8080"
-    volumes:
-      - ./backend/migrations:/app/migrations:ro
     depends_on:
-      database:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    working_dir: /app
     environment:
-      DATABASE_URL: postgres://postgres:postgres@database:5432/genshinquiz?sslmode=disable
-      PORT: 8080
-      ENVIRONMENT: development
-      JWT_SECRET: your-super-secret-jwt-key-change-in-production
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      DB_HOST: database
-      DB_PORT: 5432
-      DB_NAME: genshinquiz
+      GOBIN: /app/bin
+      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/genshinquiz?sslmode=disable"
       REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ""
-      SENTRY_DSN: ${SENTRY_DSN:-}
-      AZURE_STORAGE_ACCOUNT: ${AZURE_STORAGE_ACCOUNT:-}
-      AZURE_STORAGE_KEY: ${AZURE_STORAGE_KEY:-}
-      AZURE_CONTAINER_NAME: ${AZURE_CONTAINER_NAME:-genshin-quiz}
+    volumes:
+      - ./backend:/app
+      - go_mods:/go/pkg/mod
+      - go_bin:/app/bin
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        if [ ! -f /usr/local/bin/task ]; then
+          curl -sL https://taskfile.dev/install.sh | sh -s -- -b /usr/local/bin
+        fi
+        if ! command -v psql &> /dev/null; then
+          apt-get update && apt-get install -y postgresql-client && apt-get clean
+        fi
+        task init-env
+        if [ ! -f /app/bin/goose ]; then
+          go install github.com/pressly/goose/v3/cmd/goose@latest
+        fi
+        task db-migration-up
+        task run-server
     healthcheck:
       test:
         [
@@ -79,21 +77,21 @@ services:
       start_period: 10s
 
   # PostgreSQL Database
-  database:
+  postgres:
     container_name: postgres
-    image: postgres:16.4-alpine
+    image: postgres:16.4
     restart: unless-stopped
     volumes:
-      - db_data:/var/lib/postgresql/data
-      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
+      - ./config/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: genshinquiz
+      POSTGRES_DB: exampledb
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d genshinquiz"]
+      test: ["CMD", "pg_isready", "-U", "postgres", "-h", "localhost"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -113,7 +111,3 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-
-volumes:
-  db_data:
-  redis_data:

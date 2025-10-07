@@ -8,10 +8,6 @@ function App() {
   return (
     <Box>
       <Link href="#">Home</Link>
-      <Link href="localhost:3082/api-docs">API</Link>
-      <Button onClick={() => setCount((count) => count + 1)}>
-        count is {count}
-      </Button>
     </Box>
   )
 }

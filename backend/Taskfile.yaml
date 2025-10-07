@@ -30,11 +30,11 @@ tasks:
     cmds:
       - |
         if [ ! -f .env.local ]; then
-          cp .env.local.example .env.local
+          cp .env.example .env.local
         fi
       - |
         if [ ! -f .env.test ]; then
-          cp .env.test.example .env.test
+          cp .env.example .env.test
         fi
 
   init-tools:
