@@ -6,19 +6,16 @@ import (
 	"genshin-quiz/config"
 )
 
-// CommandHandler handles console commands
 type Console struct {
 	app *config.App
 }
 
-// NewConsole creates a new console
 func NewConsole(app *config.App) *Console {
 	return &Console{
 		app: app,
 	}
 }
 
-// Execute executes a console command
 func (c *Console) Execute(command string, args []string) error {
 	switch command {
 	case "seed":
@@ -28,7 +25,6 @@ func (c *Console) Execute(command string, args []string) error {
 	}
 }
 
-// SeedDatabase seeds the database with sample data
 func (c *Console) SeedDatabase() error {
 	c.app.Logger.Info("Seeding database with sample data...")
 

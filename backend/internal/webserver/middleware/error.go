@@ -15,7 +15,6 @@ type ErrorResponse struct {
 	Details string `json:"details,omitempty"`
 }
 
-// Handler creates an error handling middleware
 func Handler(logger *zap.Logger) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
@@ -38,7 +37,6 @@ func Handler(logger *zap.Logger) func(next http.Handler) http.Handler {
 	}
 }
 
-// WriteErrorResponse writes a standardized error response
 func WriteErrorResponse(w http.ResponseWriter, statusCode int, message, code, details string) {
 	writeErrorResponse(w, statusCode, message, code, details)
 }
@@ -53,10 +51,14 @@ func writeErrorResponse(w http.ResponseWriter, statusCode int, message, code, de
 		Details: details,
 	}
 
-	json.NewEncoder(w).Encode(response)
+	err := json.NewEncoder(w).Encode(response)
+	if err != nil {
+		// If JSON encoding fails, write a simple error message
+		// We intentionally ignore the error from Write as there's nothing more we can do
+		w.Write([]byte(`{"error":"Internal server error"}`)) //nolint:errcheck // fallback error writing
+	}
 }
 
-// HandleBadRequestError creates a handler for bad request errors in OpenAPI operations
 func HandleBadRequestError(app *config.App) func(w http.ResponseWriter, r *http.Request, err error) {
 	return func(w http.ResponseWriter, r *http.Request, err error) {
 		app.Logger.Error("Bad request error",
@@ -70,7 +72,6 @@ func HandleBadRequestError(app *config.App) func(w http.ResponseWriter, r *http.
 	}
 }
 
-// HandleResponseErrorWithLog creates a handler for response errors in OpenAPI operations
 func HandleResponseErrorWithLog(app *config.App) func(w http.ResponseWriter, r *http.Request, err error) {
 	return func(w http.ResponseWriter, r *http.Request, err error) {
 		app.Logger.Error("Response error",

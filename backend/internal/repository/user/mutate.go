@@ -15,19 +15,19 @@ func Insert(
 	model model.Users,
 ) (*model.Users, error) {
 	// start := time.Now()
-	return nil, nil
+	return &model, nil
 }
 
 func Update(
 	ctx context.Context,
 	db qrm.DB,
-	uuid uuid.UUID,
+	model model.Users,
 ) (*model.Users, error) {
 	// start := time.Now()
 
 	// updateStmt := table.Users.UPDATE()
 
-	return nil, nil
+	return &model, nil
 }
 
 func Delete(

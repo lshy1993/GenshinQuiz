@@ -50,7 +50,10 @@ func NewServer(app *config.App) *Server {
 	// Health check endpoint
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok","timestamp":"` + time.Now().Format(time.RFC3339) + `"}`))
+		_, err := w.Write([]byte(`{"status":"ok","timestamp":"` + time.Now().Format(time.RFC3339) + `"}`))
+		if err != nil {
+			app.Logger.Error("Failed to write health check response", zap.Error(err))
+		}
 	})
 
 	// Setup routes

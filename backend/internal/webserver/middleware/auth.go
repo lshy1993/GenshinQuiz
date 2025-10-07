@@ -10,7 +10,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// UserClaims represents the claims stored in JWT
 type UserClaims struct {
 	UserID   int64  `json:"user_id"`
 	Username string `json:"username"`
@@ -18,11 +17,8 @@ type UserClaims struct {
 	jwt.RegisteredClaims
 }
 
-// UserContext key for storing user claims in context
 type userContextKey struct{}
 
-// JWTAuth creates a JWT authentication middleware
-// Note: This is a custom implementation. Usually you'd use jwtauth.Verifier + jwtauth.Authenticator
 func JWTAuth(jwtSecret string) func(http.Handler) http.Handler {
 	tokenAuth := jwtauth.New("HS256", []byte(jwtSecret), nil)
 
@@ -92,13 +88,11 @@ func JWTAuth(jwtSecret string) func(http.Handler) http.Handler {
 	}
 }
 
-// GetUserFromContext extracts user claims from request context
 func GetUserFromContext(r *http.Request) (*UserClaims, bool) {
 	user, ok := r.Context().Value(userContextKey{}).(UserClaims)
 	return &user, ok
 }
 
-// Authenticator creates a middleware that requires authentication
 func Authenticator(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, claims, err := jwtauth.FromContext(r.Context())
@@ -148,7 +142,6 @@ func Authenticator(next http.Handler) http.Handler {
 	})
 }
 
-// AdminOnly is a middleware that checks if the user has admin privileges
 func AdminOnly(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userClaims, ok := GetUserFromContext(r)

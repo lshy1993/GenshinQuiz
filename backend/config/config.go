@@ -3,10 +3,12 @@ package config
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
@@ -28,9 +30,9 @@ type App struct {
 
 	Config   AppConfig
 	Database DatabaseConfig
-	Worker   WorkerConfig
-	Azure    AzureConfig
-	Server   ServerConfig
+	// Worker   WorkerConfig
+	Azure  AzureConfig
+	Server ServerConfig
 }
 
 type AppConfig struct {
@@ -111,7 +113,19 @@ func (app *App) initializeLogger() (*zap.Logger, error) {
 	config.EncoderConfig.TimeKey = "timestamp"
 	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 
-	return config.Build()
+	logger, _ := config.Build()
+	// Set up defer immediately after logger is created
+	defer func() {
+		err := logger.Sync()
+		if err != nil &&
+			!errors.Is(err, syscall.EINVAL) && // invalid argument
+			!errors.Is(err, syscall.EBADF) && // bad file descriptor
+			!errors.Is(err, syscall.ENOTTY) {
+			panic(err.Error())
+		}
+	}()
+
+	return logger, nil
 }
 
 func (app *App) initializeDatabase() (*sql.DB, error) {
@@ -176,10 +190,6 @@ func NewApp() *App {
 			ConnMaxLifetime: getEnvAsDuration("DB_CONN_MAX_LIFETIME", "5m"),
 		},
 
-		Worker: WorkerConfig{
-			Concurrency: getEnvAsInt("WORKER_CONCURRENCY", 10),
-		},
-
 		Azure: AzureConfig{
 			StorageAccount: getEnv("AZURE_STORAGE_ACCOUNT", ""),
 			StorageKey:     getEnv("AZURE_STORAGE_KEY", ""),
@@ -197,7 +207,6 @@ func NewApp() *App {
 	if err != nil {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
-	defer logger.Sync()
 	app.Logger = logger
 
 	db, err := app.initializeDatabase()
