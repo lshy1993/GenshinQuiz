@@ -14,6 +14,7 @@ import (
 
 	"genshin-quiz/config"
 	"genshin-quiz/generated/oapi"
+	"genshin-quiz/internal/webserver/handler"
 	mw "genshin-quiz/internal/webserver/middleware"
 )
 
@@ -22,7 +23,7 @@ type Server struct {
 	serverAddr string
 }
 
-func New(app *config.App) *Server {
+func NewServer(app *config.App) *Server {
 	// Setup router
 	r := chi.NewRouter()
 
@@ -55,15 +56,15 @@ func New(app *config.App) *Server {
 	// Setup routes
 	r.Group(func(r chi.Router) {
 		r.Use(jwtauth.Verifier(app.JWTAuth))
-		// r.Use(middleware.Authenticator(app))
+		r.Use(mw.Authenticator)
 
 		baseURL := ""
 		serverOptions := oapi.StrictHTTPServerOptions{
-			RequestErrorHandlerFunc:  middleware.HandleBadRequestError(app),
-			ResponseErrorHandlerFunc: middleware.HandleResponseErrorWithLog(app),
+			RequestErrorHandlerFunc:  mw.HandleBadRequestError(app),
+			ResponseErrorHandlerFunc: mw.HandleResponseErrorWithLog(app),
 		}
 		strictHandler := oapi.NewStrictHandlerWithOptions(
-			handler,
+			handler.NewHandler(app),
 			[]oapi.StrictMiddlewareFunc{},
 			serverOptions,
 		)

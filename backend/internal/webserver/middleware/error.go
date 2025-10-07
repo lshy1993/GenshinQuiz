@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"go.uber.org/zap"
+
+	"genshin-quiz/config"
 )
 
 type ErrorResponse struct {
@@ -52,4 +54,32 @@ func writeErrorResponse(w http.ResponseWriter, statusCode int, message, code, de
 	}
 
 	json.NewEncoder(w).Encode(response)
+}
+
+// HandleBadRequestError creates a handler for bad request errors in OpenAPI operations
+func HandleBadRequestError(app *config.App) func(w http.ResponseWriter, r *http.Request, err error) {
+	return func(w http.ResponseWriter, r *http.Request, err error) {
+		app.Logger.Error("Bad request error",
+			zap.String("method", r.Method),
+			zap.String("url", r.URL.String()),
+			zap.Error(err),
+			zap.String("request_id", r.Header.Get("X-Request-ID")),
+		)
+
+		writeErrorResponse(w, http.StatusBadRequest, "Bad request", "INVALID_REQUEST", err.Error())
+	}
+}
+
+// HandleResponseErrorWithLog creates a handler for response errors in OpenAPI operations
+func HandleResponseErrorWithLog(app *config.App) func(w http.ResponseWriter, r *http.Request, err error) {
+	return func(w http.ResponseWriter, r *http.Request, err error) {
+		app.Logger.Error("Response error",
+			zap.String("method", r.Method),
+			zap.String("url", r.URL.String()),
+			zap.Error(err),
+			zap.String("request_id", r.Header.Get("X-Request-ID")),
+		)
+
+		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", "INTERNAL_ERROR", err.Error())
+	}
 }

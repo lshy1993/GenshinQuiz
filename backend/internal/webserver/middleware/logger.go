@@ -19,7 +19,7 @@ func Logger(logger *zap.Logger) func(next http.Handler) http.Handler {
 
 			defer func() {
 				duration := time.Since(start)
-				
+
 				logger.Info("HTTP request",
 					zap.String("method", r.Method),
 					zap.String("url", r.URL.String()),
@@ -52,19 +52,6 @@ func ErrorLogger(logger *zap.Logger) func(next http.Handler) http.Handler {
 						zap.String("request_id", middleware.GetReqID(r.Context())),
 					)
 					http.Error(w, "Internal server error", http.StatusInternalServerError)
-				}
-			}()
-			
-			next.ServeHTTP(w, r)
-		}
-		return http.HandlerFunc(fn)
-	}
-}
-						zap.String("method", r.Method),
-						zap.String("url", r.URL.String()),
-						zap.String("request_id", middleware.GetReqID(r.Context())),
-					)
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 				}
 			}()
 
