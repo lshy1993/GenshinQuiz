@@ -233,10 +233,6 @@ export type NotFoundResponse = Error;
  */
 export type InternalServerErrorResponse = Error;
 
-export type HealthCheck200 = {
-  status?: string;
-};
-
 export type GetUsersParams = {
 /**
  * @minimum 1

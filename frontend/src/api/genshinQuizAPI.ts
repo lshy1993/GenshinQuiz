@@ -5,170 +5,469 @@
  * API for Genshin Impact Quiz Application
  * OpenAPI spec version: 1.0.0
  */
-import * as axios from 'axios';
+import useSwr from 'swr';
 import type {
-  AxiosRequestConfig,
-  AxiosResponse
-} from 'axios';
+  Arguments,
+  Key,
+  SWRConfiguration
+} from 'swr';
+
+import useSWRMutation from 'swr/mutation';
+import type {
+  SWRMutationConfiguration
+} from 'swr/mutation';
 
 import type {
+  BadRequestResponse,
   CreateQuizRequest,
   CreateUserRequest,
   GetQuizzes200,
   GetQuizzesParams,
   GetUsers200,
   GetUsersParams,
-  HealthCheck200,
+  InternalServerErrorResponse,
+  NotFoundResponse,
   Quiz,
   UpdateQuizRequest,
   UpdateUserRequest,
   User
 } from './genshinQuizAPI.schemas';
 
+import { fetcher } from './fetcher/fetcher';
 
 
-
-  export const getGenshinQuizAPI = () => {
+  
+  
+  
 /**
- * @summary Health check endpoint
+ * @summary Get all users
  */
-const healthCheck = <TData = AxiosResponse<HealthCheck200>>(
-     options?: AxiosRequestConfig
- ): Promise<TData> => {
-    return axios.default.get(
-      `/health`,options
+export const getUsers = (
+    params?: GetUsersParams,
+ ) => {
+    return fetcher<GetUsers200>(
+    {url: `/users`, method: 'GET',
+        params
+    },
     );
   }
+
+
+
+export const getGetUsersKey = (params?: GetUsersParams,) => [`/users`, ...(params ? [params]: [])] as const;
+
+export type GetUsersQueryResult = NonNullable<Awaited<ReturnType<typeof getUsers>>>
+export type GetUsersQueryError = InternalServerErrorResponse
 
 /**
  * @summary Get all users
  */
-const getUsers = <TData = AxiosResponse<GetUsers200>>(
-    params?: GetUsersParams, options?: AxiosRequestConfig
- ): Promise<TData> => {
-    return axios.default.get(
-      `/users`,{
-    ...options,
-        params: {...params, ...options?.params},}
-    );
+export const useGetUsers = <TError = InternalServerErrorResponse>(
+  params?: GetUsersParams, options?: { swr?:SWRConfiguration<Awaited<ReturnType<typeof getUsers>>, TError> & { swrKey?: Key, enabled?: boolean },  }
+) => {
+  const {swr: swrOptions} = options ?? {}
+
+  const isEnabled = swrOptions?.enabled !== false
+  const swrKey = swrOptions?.swrKey ?? (() => isEnabled ? getGetUsersKey(params) : null);
+  const swrFn = () => getUsers(params)
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
   }
+}
 
 /**
  * @summary Create a new user
  */
-const createUser = <TData = AxiosResponse<User>>(
-    createUserRequest: CreateUserRequest, options?: AxiosRequestConfig
- ): Promise<TData> => {
-    return axios.default.post(
-      `/users`,
-      createUserRequest,options
+export const createUser = (
+    createUserRequest: CreateUserRequest,
+ ) => {
+    return fetcher<User>(
+    {url: `/users`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: createUserRequest
+    },
     );
   }
+
+
+
+export const getCreateUserMutationFetcher = ( ) => {
+  return (_: Key, { arg }: { arg: CreateUserRequest }): Promise<User> => {
+    return createUser(arg);
+  }
+}
+export const getCreateUserMutationKey = () => [`/users`] as const;
+
+export type CreateUserMutationResult = NonNullable<Awaited<ReturnType<typeof createUser>>>
+export type CreateUserMutationError = BadRequestResponse | InternalServerErrorResponse
+
+/**
+ * @summary Create a new user
+ */
+export const useCreateUser = <TError = BadRequestResponse | InternalServerErrorResponse>(
+   options?: { swr?:SWRMutationConfiguration<Awaited<ReturnType<typeof createUser>>, TError, Key, CreateUserRequest, Awaited<ReturnType<typeof createUser>>> & { swrKey?: string }, }
+) => {
+
+  const {swr: swrOptions} = options ?? {}
+
+  const swrKey = swrOptions?.swrKey ?? getCreateUserMutationKey();
+  const swrFn = getCreateUserMutationFetcher();
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
 
 /**
  * @summary Get user by ID
  */
-const getUser = <TData = AxiosResponse<User>>(
-    id: number, options?: AxiosRequestConfig
- ): Promise<TData> => {
-    return axios.default.get(
-      `/users/${id}`,options
+export const getUser = (
+    id: number,
+ ) => {
+    return fetcher<User>(
+    {url: `/users/${id}`, method: 'GET'
+    },
     );
   }
+
+
+
+export const getGetUserKey = (id: number,) => [`/users/${id}`] as const;
+
+export type GetUserQueryResult = NonNullable<Awaited<ReturnType<typeof getUser>>>
+export type GetUserQueryError = NotFoundResponse | InternalServerErrorResponse
+
+/**
+ * @summary Get user by ID
+ */
+export const useGetUser = <TError = NotFoundResponse | InternalServerErrorResponse>(
+  id: number, options?: { swr?:SWRConfiguration<Awaited<ReturnType<typeof getUser>>, TError> & { swrKey?: Key, enabled?: boolean },  }
+) => {
+  const {swr: swrOptions} = options ?? {}
+
+  const isEnabled = swrOptions?.enabled !== false && !!(id)
+  const swrKey = swrOptions?.swrKey ?? (() => isEnabled ? getGetUserKey(id) : null);
+  const swrFn = () => getUser(id)
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
 
 /**
  * @summary Update user
  */
-const updateUser = <TData = AxiosResponse<User>>(
+export const updateUser = (
     id: number,
-    updateUserRequest: UpdateUserRequest, options?: AxiosRequestConfig
- ): Promise<TData> => {
-    return axios.default.put(
-      `/users/${id}`,
-      updateUserRequest,options
+    updateUserRequest: UpdateUserRequest,
+ ) => {
+    return fetcher<User>(
+    {url: `/users/${id}`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: updateUserRequest
+    },
     );
   }
+
+
+
+export const getUpdateUserMutationFetcher = (id: number, ) => {
+  return (_: Key, { arg }: { arg: UpdateUserRequest }): Promise<User> => {
+    return updateUser(id, arg);
+  }
+}
+export const getUpdateUserMutationKey = (id: number,) => [`/users/${id}`] as const;
+
+export type UpdateUserMutationResult = NonNullable<Awaited<ReturnType<typeof updateUser>>>
+export type UpdateUserMutationError = BadRequestResponse | NotFoundResponse | InternalServerErrorResponse
+
+/**
+ * @summary Update user
+ */
+export const useUpdateUser = <TError = BadRequestResponse | NotFoundResponse | InternalServerErrorResponse>(
+  id: number, options?: { swr?:SWRMutationConfiguration<Awaited<ReturnType<typeof updateUser>>, TError, Key, UpdateUserRequest, Awaited<ReturnType<typeof updateUser>>> & { swrKey?: string }, }
+) => {
+
+  const {swr: swrOptions} = options ?? {}
+
+  const swrKey = swrOptions?.swrKey ?? getUpdateUserMutationKey(id);
+  const swrFn = getUpdateUserMutationFetcher(id);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
 
 /**
  * @summary Delete user
  */
-const deleteUser = <TData = AxiosResponse<null>>(
-    id: number, options?: AxiosRequestConfig
- ): Promise<TData> => {
-    return axios.default.delete(
-      `/users/${id}`,options
-    ).then((res) => {if (res.data === "") res.data = null; return res as TData;});
+export const deleteUser = (
+    id: number,
+ ) => {
+    return fetcher<null>(
+    {url: `/users/${id}`, method: 'DELETE'
+    },
+    );
   }
+
+
+
+export const getDeleteUserMutationFetcher = (id: number, ) => {
+  return (_: Key, __: { arg: Arguments }): Promise<null> => {
+    return deleteUser(id);
+  }
+}
+export const getDeleteUserMutationKey = (id: number,) => [`/users/${id}`] as const;
+
+export type DeleteUserMutationResult = NonNullable<Awaited<ReturnType<typeof deleteUser>>>
+export type DeleteUserMutationError = NotFoundResponse | InternalServerErrorResponse
+
+/**
+ * @summary Delete user
+ */
+export const useDeleteUser = <TError = NotFoundResponse | InternalServerErrorResponse>(
+  id: number, options?: { swr?:SWRMutationConfiguration<Awaited<ReturnType<typeof deleteUser>>, TError, Key, Arguments, Awaited<ReturnType<typeof deleteUser>>> & { swrKey?: string }, }
+) => {
+
+  const {swr: swrOptions} = options ?? {}
+
+  const swrKey = swrOptions?.swrKey ?? getDeleteUserMutationKey(id);
+  const swrFn = getDeleteUserMutationFetcher(id);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
 
 /**
  * @summary Get all quizzes
  */
-const getQuizzes = <TData = AxiosResponse<GetQuizzes200>>(
-    params?: GetQuizzesParams, options?: AxiosRequestConfig
- ): Promise<TData> => {
-    return axios.default.get(
-      `/quizzes`,{
-    ...options,
-        params: {...params, ...options?.params},}
+export const getQuizzes = (
+    params?: GetQuizzesParams,
+ ) => {
+    return fetcher<GetQuizzes200>(
+    {url: `/quizzes`, method: 'GET',
+        params
+    },
     );
   }
+
+
+
+export const getGetQuizzesKey = (params?: GetQuizzesParams,) => [`/quizzes`, ...(params ? [params]: [])] as const;
+
+export type GetQuizzesQueryResult = NonNullable<Awaited<ReturnType<typeof getQuizzes>>>
+export type GetQuizzesQueryError = InternalServerErrorResponse
+
+/**
+ * @summary Get all quizzes
+ */
+export const useGetQuizzes = <TError = InternalServerErrorResponse>(
+  params?: GetQuizzesParams, options?: { swr?:SWRConfiguration<Awaited<ReturnType<typeof getQuizzes>>, TError> & { swrKey?: Key, enabled?: boolean },  }
+) => {
+  const {swr: swrOptions} = options ?? {}
+
+  const isEnabled = swrOptions?.enabled !== false
+  const swrKey = swrOptions?.swrKey ?? (() => isEnabled ? getGetQuizzesKey(params) : null);
+  const swrFn = () => getQuizzes(params)
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
 
 /**
  * @summary Create a new quiz
  */
-const createQuiz = <TData = AxiosResponse<Quiz>>(
-    createQuizRequest: CreateQuizRequest, options?: AxiosRequestConfig
- ): Promise<TData> => {
-    return axios.default.post(
-      `/quizzes`,
-      createQuizRequest,options
+export const createQuiz = (
+    createQuizRequest: CreateQuizRequest,
+ ) => {
+    return fetcher<Quiz>(
+    {url: `/quizzes`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: createQuizRequest
+    },
     );
   }
+
+
+
+export const getCreateQuizMutationFetcher = ( ) => {
+  return (_: Key, { arg }: { arg: CreateQuizRequest }): Promise<Quiz> => {
+    return createQuiz(arg);
+  }
+}
+export const getCreateQuizMutationKey = () => [`/quizzes`] as const;
+
+export type CreateQuizMutationResult = NonNullable<Awaited<ReturnType<typeof createQuiz>>>
+export type CreateQuizMutationError = BadRequestResponse | InternalServerErrorResponse
+
+/**
+ * @summary Create a new quiz
+ */
+export const useCreateQuiz = <TError = BadRequestResponse | InternalServerErrorResponse>(
+   options?: { swr?:SWRMutationConfiguration<Awaited<ReturnType<typeof createQuiz>>, TError, Key, CreateQuizRequest, Awaited<ReturnType<typeof createQuiz>>> & { swrKey?: string }, }
+) => {
+
+  const {swr: swrOptions} = options ?? {}
+
+  const swrKey = swrOptions?.swrKey ?? getCreateQuizMutationKey();
+  const swrFn = getCreateQuizMutationFetcher();
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
 
 /**
  * @summary Get quiz by ID
  */
-const getQuiz = <TData = AxiosResponse<Quiz>>(
-    id: number, options?: AxiosRequestConfig
- ): Promise<TData> => {
-    return axios.default.get(
-      `/quizzes/${id}`,options
+export const getQuiz = (
+    id: number,
+ ) => {
+    return fetcher<Quiz>(
+    {url: `/quizzes/${id}`, method: 'GET'
+    },
     );
   }
+
+
+
+export const getGetQuizKey = (id: number,) => [`/quizzes/${id}`] as const;
+
+export type GetQuizQueryResult = NonNullable<Awaited<ReturnType<typeof getQuiz>>>
+export type GetQuizQueryError = NotFoundResponse | InternalServerErrorResponse
+
+/**
+ * @summary Get quiz by ID
+ */
+export const useGetQuiz = <TError = NotFoundResponse | InternalServerErrorResponse>(
+  id: number, options?: { swr?:SWRConfiguration<Awaited<ReturnType<typeof getQuiz>>, TError> & { swrKey?: Key, enabled?: boolean },  }
+) => {
+  const {swr: swrOptions} = options ?? {}
+
+  const isEnabled = swrOptions?.enabled !== false && !!(id)
+  const swrKey = swrOptions?.swrKey ?? (() => isEnabled ? getGetQuizKey(id) : null);
+  const swrFn = () => getQuiz(id)
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
 
 /**
  * @summary Update quiz
  */
-const updateQuiz = <TData = AxiosResponse<Quiz>>(
+export const updateQuiz = (
     id: number,
-    updateQuizRequest: UpdateQuizRequest, options?: AxiosRequestConfig
- ): Promise<TData> => {
-    return axios.default.put(
-      `/quizzes/${id}`,
-      updateQuizRequest,options
+    updateQuizRequest: UpdateQuizRequest,
+ ) => {
+    return fetcher<Quiz>(
+    {url: `/quizzes/${id}`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: updateQuizRequest
+    },
     );
   }
+
+
+
+export const getUpdateQuizMutationFetcher = (id: number, ) => {
+  return (_: Key, { arg }: { arg: UpdateQuizRequest }): Promise<Quiz> => {
+    return updateQuiz(id, arg);
+  }
+}
+export const getUpdateQuizMutationKey = (id: number,) => [`/quizzes/${id}`] as const;
+
+export type UpdateQuizMutationResult = NonNullable<Awaited<ReturnType<typeof updateQuiz>>>
+export type UpdateQuizMutationError = BadRequestResponse | NotFoundResponse | InternalServerErrorResponse
+
+/**
+ * @summary Update quiz
+ */
+export const useUpdateQuiz = <TError = BadRequestResponse | NotFoundResponse | InternalServerErrorResponse>(
+  id: number, options?: { swr?:SWRMutationConfiguration<Awaited<ReturnType<typeof updateQuiz>>, TError, Key, UpdateQuizRequest, Awaited<ReturnType<typeof updateQuiz>>> & { swrKey?: string }, }
+) => {
+
+  const {swr: swrOptions} = options ?? {}
+
+  const swrKey = swrOptions?.swrKey ?? getUpdateQuizMutationKey(id);
+  const swrFn = getUpdateQuizMutationFetcher(id);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
 
 /**
  * @summary Delete quiz
  */
-const deleteQuiz = <TData = AxiosResponse<null>>(
-    id: number, options?: AxiosRequestConfig
- ): Promise<TData> => {
-    return axios.default.delete(
-      `/quizzes/${id}`,options
-    ).then((res) => {if (res.data === "") res.data = null; return res as TData;});
+export const deleteQuiz = (
+    id: number,
+ ) => {
+    return fetcher<null>(
+    {url: `/quizzes/${id}`, method: 'DELETE'
+    },
+    );
   }
 
-return {healthCheck,getUsers,createUser,getUser,updateUser,deleteUser,getQuizzes,createQuiz,getQuiz,updateQuiz,deleteQuiz}};
-export type HealthCheckResult = AxiosResponse<HealthCheck200>
-export type GetUsersResult = AxiosResponse<GetUsers200>
-export type CreateUserResult = AxiosResponse<User>
-export type GetUserResult = AxiosResponse<User>
-export type UpdateUserResult = AxiosResponse<User>
-export type DeleteUserResult = AxiosResponse<null>
-export type GetQuizzesResult = AxiosResponse<GetQuizzes200>
-export type CreateQuizResult = AxiosResponse<Quiz>
-export type GetQuizResult = AxiosResponse<Quiz>
-export type UpdateQuizResult = AxiosResponse<Quiz>
-export type DeleteQuizResult = AxiosResponse<null>
+
+
+export const getDeleteQuizMutationFetcher = (id: number, ) => {
+  return (_: Key, __: { arg: Arguments }): Promise<null> => {
+    return deleteQuiz(id);
+  }
+}
+export const getDeleteQuizMutationKey = (id: number,) => [`/quizzes/${id}`] as const;
+
+export type DeleteQuizMutationResult = NonNullable<Awaited<ReturnType<typeof deleteQuiz>>>
+export type DeleteQuizMutationError = NotFoundResponse | InternalServerErrorResponse
+
+/**
+ * @summary Delete quiz
+ */
+export const useDeleteQuiz = <TError = NotFoundResponse | InternalServerErrorResponse>(
+  id: number, options?: { swr?:SWRMutationConfiguration<Awaited<ReturnType<typeof deleteQuiz>>, TError, Key, Arguments, Awaited<ReturnType<typeof deleteQuiz>>> & { swrKey?: string }, }
+) => {
+
+  const {swr: swrOptions} = options ?? {}
+
+  const swrKey = swrOptions?.swrKey ?? getDeleteQuizMutationKey(id);
+  const swrFn = getDeleteQuizMutationFetcher(id);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
+
