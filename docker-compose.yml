@@ -28,7 +28,7 @@ services:
 
   # Go Backend API
   backend:
-    image: golang:1.25
+    # image: golang:1.25
     container_name: go-backend
     build:
       context: ./backend
@@ -66,20 +66,20 @@ services:
         fi
         task db-migration-up
         task run-server
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://localhost:8080/health",
-        ]
-      interval: 30s
-      retries: 3
-      timeout: 10s
-      start_period: 10s
+    # healthcheck:
+    #   test:
+    #     [
+    #       "CMD",
+    #       "wget",
+    #       "--no-verbose",
+    #       "--tries=1",
+    #       "--spider",
+    #       "http://localhost:8080/health",
+    #     ]
+    #   interval: 30s
+    #   retries: 3
+    #   timeout: 10s
+    #   start_period: 10s
 
   # PostgreSQL Database
   postgres:

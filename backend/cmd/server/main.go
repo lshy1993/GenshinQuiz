@@ -35,10 +35,10 @@ func main() {
 	}
 
 	// Initialize configuration
-	cfg := config.NewApp()
+	app := config.NewApp()
 
 	// Initialize server
-	server := webserver.NewServer(cfg)
+	server := webserver.NewServer(app)
 	// Start server in a goroutine
 	server.Start()
 }

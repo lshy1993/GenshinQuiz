@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/getsentry/sentry-go"
 	sentryhttp "github.com/getsentry/sentry-go/http"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -29,22 +30,23 @@ func NewServer(app *config.App) *Server {
 	// Setup router
 	r := chi.NewRouter()
 
-	// Basic middleware
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-
 	// Sentry 中间件 - 用于自动错误跟踪
 	if app.Config.SentryDSN != "" {
-		sentryHandler := sentryhttp.New(sentryhttp.Options{})
+		sentryHandler := sentryhttp.New(sentryhttp.Options{
+			Repanic: true,
+		})
 		r.Use(sentryHandler.Handle)
 	}
 
+	// Basic middleware
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
 	r.Use(mw.Logger(app.Logger))
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(60 * time.Second))
 
-	// Error handling middleware
+	// 使用自定义的错误处理中间件，替代 chi 的 Recoverer
 	r.Use(mw.Handler(app.Logger))
+
+	r.Use(middleware.Timeout(60 * time.Second))
 
 	// CORS configuration
 	r.Use(cors.Handler(cors.Options{
@@ -88,6 +90,8 @@ func NewServer(app *config.App) *Server {
 		serverOptions,
 	)
 	oapi.HandlerFromMuxWithBaseURL(strictHandler, r, baseURL)
+
+	defer sentry.Flush(2 * time.Second)
 
 	return &Server{
 		router:     r,

@@ -186,11 +186,12 @@ func (app *App) initializeSentry() error {
 	}
 
 	err := sentry.Init(sentry.ClientOptions{
-		Dsn:         app.Config.SentryDSN,
-		Environment: app.Config.Environment,
-		Release:     app.Config.Version,
-		Debug:       app.Config.Environment == "development",
-		SampleRate:  1.0, // 在生产环境中可能需要调整采样率
+		Dsn:              app.Config.SentryDSN,
+		Environment:      app.Config.Environment,
+		Debug:            app.Config.Environment == "development",
+		SampleRate:       1.0, // 在生产环境中可能需要调整采样率
+		TracesSampleRate: 1.0, // 可选，开启 tracing
+		EnableTracing:    app.Config.Environment == "production",
 	})
 	if err != nil {
 		return fmt.Errorf("failed to initialize Sentry: %w", err)
@@ -198,7 +199,7 @@ func (app *App) initializeSentry() error {
 
 	app.Logger.Info("Sentry initialized successfully",
 		zap.String("environment", app.Config.Environment),
-		zap.String("release", app.Config.Version),
+		zap.String("version", app.Config.Version),
 	)
 	return nil
 }
@@ -238,11 +239,14 @@ func NewApp() *App {
 			WriteTimeout: getEnvAsDuration("SERVER_WRITE_TIMEOUT", "30s"),
 		},
 	}
+
 	logger, err := app.initializeLogger()
 	if err != nil {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
 	app.Logger = logger
+
+	app.Logger.Info("Current App Config", zap.Any("config", app.Config))
 
 	err = app.initializeSentry()
 	if err != nil {
