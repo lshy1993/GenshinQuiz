@@ -2,8 +2,10 @@ package middleware
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
+	"github.com/getsentry/sentry-go"
 	"go.uber.org/zap"
 
 	"genshin-quiz/config"
@@ -20,6 +22,19 @@ func Handler(logger *zap.Logger) func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
 				if err := recover(); err != nil {
+					// 手动捕获错误到Sentry (如果已初始化)
+					sentry.WithScope(func(scope *sentry.Scope) {
+						scope.SetRequest(r)
+						scope.SetLevel(sentry.LevelError)
+						scope.SetTag("error_type", "panic")
+						scope.SetContext("request", map[string]interface{}{
+							"method":  r.Method,
+							"url":     r.URL.String(),
+							"headers": r.Header,
+						})
+						sentry.CaptureException(fmt.Errorf("panic recovered: %v", err))
+					})
+
 					logger.Error("Panic recovered",
 						zap.String("method", r.Method),
 						zap.String("url", r.URL.String()),
@@ -74,6 +89,19 @@ func HandleBadRequestError(app *config.App) func(w http.ResponseWriter, r *http.
 
 func HandleResponseErrorWithLog(app *config.App) func(w http.ResponseWriter, r *http.Request, err error) {
 	return func(w http.ResponseWriter, r *http.Request, err error) {
+		// 手动捕获错误到Sentry (如果已初始化)
+		sentry.WithScope(func(scope *sentry.Scope) {
+			scope.SetRequest(r)
+			scope.SetLevel(sentry.LevelError)
+			scope.SetTag("error_type", "response_error")
+			scope.SetContext("request", map[string]interface{}{
+				"method":  r.Method,
+				"url":     r.URL.String(),
+				"headers": r.Header,
+			})
+			sentry.CaptureException(err)
+		})
+
 		app.Logger.Error("Response error",
 			zap.String("method", r.Method),
 			zap.String("url", r.URL.String()),

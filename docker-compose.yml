@@ -28,11 +28,11 @@ services:
 
   # Go Backend API
   backend:
-    # image: golang:1.25
+    image: golang:1.25
     container_name: go-backend
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    # build:
+    #   context: ./backend
+    #   dockerfile: Dockerfile
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -58,7 +58,7 @@ services:
           curl -sL https://taskfile.dev/install.sh | sh -s -- -b /usr/local/bin
         fi
         if ! command -v psql &> /dev/null; then
-          apt-get update && apt-get install -y postgresql-client && apt-get clean
+          apt update && apt install -y postgresql-client && apt clean
         fi
         task init-env
         if [ ! -f /app/bin/goose ]; then

@@ -1,20 +1,41 @@
-import { useState } from 'react';
-import './App.css';
-import { Box, Button, Link } from '@mui/material';
-import { useGetQuizzes, useGetUsers } from './api/genshinQuizAPI';
+import { Box } from '@mui/material';
+import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
+
+import { AdminRouteComponent } from './admin/AdminRouteComponent';
+import Navigation from './components/Navigation';
+
+import AboutPage from './pages/AboutPage';
+import HomePage from './pages/HomePage';
+import NotFoundPage from './pages/NotFoundPage';
+import QuizDetailPage from './pages/QuizDetailPage';
+import QuizPlayPage from './pages/QuizPlayPage';
+import QuizzesListPage from './pages/QuizzesListPage';
+import UsersListPage from './pages/UsersListPage';
 
 function App() {
-  const { data: quizzes, error } = useGetQuizzes();
-  const {data: users, error: userErr} = useGetUsers();
-  if (error||userErr) {
-    return <div>Error: {error?.message || userErr?.message}</div>;
-  }
   return (
-    <Box>
-      <Link href="#">Home</Link>
-      <pre>{JSON.stringify(quizzes, null, 2)}</pre>
-      <pre>{JSON.stringify(users, null, 2)}</pre>
-    </Box>
+    <Router>
+      <Navigation />
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          overflowY: 'auto',
+          bgcolor: 'background.default',
+        }}
+      >
+        <Routes>
+          <Route path="/admin" element={<AdminRouteComponent />} />
+          <Route path="/" element={<HomePage />} />
+          <Route path="/quizzes" element={<QuizzesListPage />} />
+          <Route path="/quizzes/:id" element={<QuizDetailPage />} />
+          <Route path="/quizzes/:id/play" element={<QuizPlayPage />} />
+          <Route path="/users" element={<UsersListPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </Box>
+    </Router>
   );
 }
 

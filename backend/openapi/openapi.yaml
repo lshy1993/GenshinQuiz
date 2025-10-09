@@ -10,7 +10,7 @@ info:
 servers:
   - url: http://localhost:8080/
     description: Development server
-  - url: https://api.genshinquiz.com/
+  - url: https://api.moelink.com/genshinquiz/
     description: Production server
 
 paths:
@@ -33,7 +33,7 @@ paths:
             minimum: 0
             default: 0
       responses:
-        '200':
+        "200":
           description: List of users
           content:
             application/json:
@@ -43,16 +43,16 @@ paths:
                   users:
                     type: array
                     items:
-                      $ref: '#/components/schemas/User'
+                      $ref: "#/components/schemas/User"
                   total:
                     type: integer
                   limit:
                     type: integer
                   offset:
                     type: integer
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-    
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
     post:
       summary: Create a new user
       operationId: createUser
@@ -61,18 +61,18 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateUserRequest'
+              $ref: "#/components/schemas/CreateUserRequest"
       responses:
-        '201':
+        "201":
           description: User created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /users/{id}:
     get:
@@ -86,17 +86,17 @@ paths:
             type: integer
             format: int64
       responses:
-        '200':
+        "200":
           description: User details
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-    
+                $ref: "#/components/schemas/User"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
     put:
       summary: Update user
       operationId: updateUser
@@ -112,21 +112,21 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateUserRequest'
+              $ref: "#/components/schemas/UpdateUserRequest"
       responses:
-        '200':
+        "200":
           description: User updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-    
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
     delete:
       summary: Delete user
       operationId: deleteUser
@@ -138,12 +138,12 @@ paths:
             type: integer
             format: int64
       responses:
-        '204':
+        "204":
           description: User deleted successfully
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /quizzes:
     get:
@@ -174,7 +174,7 @@ paths:
             type: string
             enum: [easy, medium, hard]
       responses:
-        '200':
+        "200":
           description: List of quizzes
           content:
             application/json:
@@ -184,16 +184,16 @@ paths:
                   quizzes:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Quiz'
+                      $ref: "#/components/schemas/Quiz"
                   total:
                     type: integer
                   limit:
                     type: integer
                   offset:
                     type: integer
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-    
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
     post:
       summary: Create a new quiz
       operationId: createQuiz
@@ -202,18 +202,18 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateQuizRequest'
+              $ref: "#/components/schemas/CreateQuizRequest"
       responses:
-        '201':
+        "201":
           description: Quiz created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Quiz'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+                $ref: "#/components/schemas/Quiz"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /quizzes/{id}:
     get:
@@ -227,17 +227,17 @@ paths:
             type: integer
             format: int64
       responses:
-        '200':
+        "200":
           description: Quiz details
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Quiz'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-    
+                $ref: "#/components/schemas/Quiz"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
     put:
       summary: Update quiz
       operationId: updateQuiz
@@ -253,21 +253,21 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateQuizRequest'
+              $ref: "#/components/schemas/UpdateQuizRequest"
       responses:
-        '200':
+        "200":
           description: Quiz updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Quiz'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-    
+                $ref: "#/components/schemas/Quiz"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
     delete:
       summary: Delete quiz
       operationId: deleteQuiz
@@ -279,12 +279,12 @@ paths:
             type: integer
             format: int64
       responses:
-        '204':
+        "204":
           description: Quiz deleted successfully
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
 components:
   schemas:
@@ -399,7 +399,7 @@ components:
         questions:
           type: array
           items:
-            $ref: '#/components/schemas/Question'
+            $ref: "#/components/schemas/Question"
         time_limit:
           type: integer
           description: "Time limit in seconds"
@@ -449,7 +449,7 @@ components:
         questions:
           type: array
           items:
-            $ref: '#/components/schemas/CreateQuestionRequest'
+            $ref: "#/components/schemas/CreateQuestionRequest"
           minItems: 1
         time_limit:
           type: integer
@@ -490,7 +490,7 @@ components:
         questions:
           type: array
           items:
-            $ref: '#/components/schemas/CreateQuestionRequest'
+            $ref: "#/components/schemas/CreateQuestionRequest"
           minItems: 1
         time_limit:
           type: integer
@@ -601,18 +601,18 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
-    
+            $ref: "#/components/schemas/Error"
+
     NotFound:
       description: Resource not found
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
-    
+            $ref: "#/components/schemas/Error"
+
     InternalServerError:
       description: Internal server error
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/Error'
+            $ref: "#/components/schemas/Error"

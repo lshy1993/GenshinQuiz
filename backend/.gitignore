@@ -1,8 +1,4 @@
-ehthumbs.db
-########################################
-# Go backend ignore
-########################################
-# Go build
+# Go binaries
 *.exe
 *.exe~
 *.dll
@@ -11,48 +7,24 @@ ehthumbs.db
 *.test
 *.out
 
-# Go modules/tools
-vendor/
+# Go workspace
 go.work
+vendor/
+
+# Build output
 bin/
-tools.txt
+dist/
+build/
+main
 
-# IDE/editor
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# 环境变量
+# Environment variables
 .env
 .env.*
 !.env.example
 
-# 日志
+# Logs
 *.log
 logs/
-
-# 代码生成/临时
-internal/generated/
-internal/models/generated/
-tmp/
-*.tmp
-
-# 数据库迁移工具
-migrations/*.lock
-
-# Docker（如有需要可忽略 Dockerfile）
-# Dockerfile
-# docker-compose.yml
-temp/
-
-# Air live reload
-.air.toml.local
 
 # Database files
 *.db
@@ -61,16 +33,21 @@ temp/
 
 # Test coverage
 coverage.out
-coverage.html
 
-# Build artifacts
-main
-dist/
-build/
+# OS generated files
+.DS_Store
+Thumbs.db
 
-# Docker volumes data
-postgres_data/
-redis_data/
+# Editor directories
+.vscode/
+.idea/
+*.swp
+*.swo
 
-# Cache directories
-.cache/
+# Temporary files
+tmp/
+*.tmp
+temp/
+
+# Generated code
+internal/generated/
