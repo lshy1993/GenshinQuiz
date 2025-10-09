@@ -1,0 +1,6 @@
+[submodule "frontend"]
+	path = frontend
+	url = https://github.com/lshy1993/genshin-quiz.git
+[submodule "backend"]
+	path = backend
+	url = https://github.com/lshy1993/genshin-quiz-backend.git
