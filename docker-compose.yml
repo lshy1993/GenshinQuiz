@@ -7,8 +7,7 @@ volumes:
   vite_deps:
 
 services:
-  frontend:
-    container_name: frontend
+  genshinquiz-frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -23,13 +22,13 @@ services:
       VITE_API_URL: http://localhost:8080/api/v1
       CHOKIDAR_USEPOLLING: true
     depends_on:
-      - backend
+      - genshinquiz-backend
     command: /bin/sh -c "bun install && bun run dev:docker"
+    profiles: ["genshinquiz"]
 
   # Go Backend API
-  backend:
-    image: golang:1.25
-    container_name: go-backend
+  genshinquiz-backend:
+    image: golang:1.25-alpine
     # build:
     #   context: ./backend
     #   dockerfile: Dockerfile
@@ -66,20 +65,95 @@ services:
         fi
         task db-migration-up
         task run-server
-    # healthcheck:
-    #   test:
-    #     [
-    #       "CMD",
-    #       "wget",
-    #       "--no-verbose",
-    #       "--tries=1",
-    #       "--spider",
-    #       "http://localhost:8080/health",
-    #     ]
-    #   interval: 30s
-    #   retries: 3
-    #   timeout: 10s
-    #   start_period: 10s
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8080/health",
+        ]
+      interval: 30s
+      retries: 3
+      timeout: 10s
+      start_period: 40s
+    profiles: ["genshinquiz"]
+
+  moe-link:
+    build:
+      context: ./moe-link
+    ports:
+      - "3080:3080"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - ./frontend/openapi:/app/openapi # 挂载 openapi 文件夹
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+    command: /bin/sh -c "npm run dev" # 运行 Orval 生成代码然后启动 Bun 开发服务器
+    profiles: ["moe-link"]
+
+  vue-home:
+    build:
+      context: ./vue-home
+    ports:
+      - "3081:3081"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - ./frontend/openapi:/app/openapi # 挂载 openapi 文件夹
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+    command: /bin/sh -c "npm run dev" # 运行 Orval 生成代码然后启动 Bun 开发服务器
+    profiles: ["moe-link"]
+
+  alpha-soul:
+    build:
+      context: ./alpha-soul
+    ports:
+      - "3083:3083"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - ./frontend/openapi:/app/openapi # 将 openapi 文件夹挂载到容器内的 /app/openapi
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+    command: /bin/sh -c "npm run dev" # 运行 Orval 生成代码然后启动 Bun 开发服务器
+    profiles: ["moe-link"]
+
+  node-api:
+    build:
+      context: ./node-api
+    ports:
+      - "3082:3082"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - ./frontend/openapi:/app/openapi # 将 openapi 文件夹挂载到容器内的 /app/openapi
+    depends_on:
+      - database
+    environment:
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_HOST=database
+      - DB_PORT=5432
+      - DB_NAME=genshinquiz
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:3082/"]
+      interval: 30s
+      retries: 3
+      timeout: 10s
+      start_period: 5s
+    command: /bin/sh -c "npm install && node index.js"
+    profiles: ["moe-link"]
 
   # PostgreSQL Database
   postgres:
@@ -100,6 +174,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    profiles: ["genshinquiz", "moe-link"]
 
   # Redis Cache and Queue
   redis:
@@ -116,3 +191,4 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    profiles: ["genshinquiz", "moe-link"]
