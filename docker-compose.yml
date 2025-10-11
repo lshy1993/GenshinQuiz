@@ -7,16 +7,17 @@ volumes:
   vite_deps:
 
 services:
+  # React with Vite and Bun
   genshinquiz-frontend:
     build:
-      context: ./frontend
+      context: ./repos/frontend
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
     volumes:
-      - ./frontend:/app
+      - ./repos/frontend:/app
       - /app/node_modules
-      - ./backend/openapi:/app/openapi # 挂载 openapi 文件夹
+      - ./repos/backend/openapi:/app/openapi # 挂载 openapi 文件夹
       - vite_deps:/app/node_modules/.vite # 挂载 Vite 依赖缓存
     environment:
       VITE_API_URL: http://localhost:8080/api/v1
@@ -28,10 +29,7 @@ services:
 
   # Go Backend API
   genshinquiz-backend:
-    image: golang:1.25-alpine
-    # build:
-    #   context: ./backend
-    #   dockerfile: Dockerfile
+    image: golang:1.25
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -46,7 +44,7 @@ services:
       DATABASE_URL: "postgres://postgres:postgres@postgres:5432/genshinquiz?sslmode=disable"
       REDIS_HOST: redis
     volumes:
-      - ./backend:/app
+      - ./repos/backend:/app
       - go_mods:/go/pkg/mod
       - go_bin:/app/bin
     entrypoint:
@@ -65,100 +63,95 @@ services:
         fi
         task db-migration-up
         task run-server
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://localhost:8080/health",
-        ]
-      interval: 30s
-      retries: 3
-      timeout: 10s
-      start_period: 40s
+    # healthcheck:
+    #   test:
+    #     [
+    #       "CMD",
+    #       "wget",
+    #       "--no-verbose",
+    #       "--tries=1",
+    #       "--spider",
+    #       "http://localhost:8080/health",
+    #     ]
+    #   interval: 30s
+    #   retries: 3
+    #   timeout: 10s
+    #   start_period: 40s
     profiles: ["genshinquiz"]
 
-  moe-link:
-    build:
-      context: ./moe-link
-    ports:
-      - "3080:3080"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - ./frontend/openapi:/app/openapi # 挂载 openapi 文件夹
-    environment:
-      - CHOKIDAR_USEPOLLING=true
-    depends_on:
-      - backend
-    command: /bin/sh -c "npm run dev" # 运行 Orval 生成代码然后启动 Bun 开发服务器
-    profiles: ["moe-link"]
-
-  vue-home:
-    build:
-      context: ./vue-home
-    ports:
-      - "3081:3081"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - ./frontend/openapi:/app/openapi # 挂载 openapi 文件夹
-    environment:
-      - CHOKIDAR_USEPOLLING=true
-    depends_on:
-      - backend
-    command: /bin/sh -c "npm run dev" # 运行 Orval 生成代码然后启动 Bun 开发服务器
-    profiles: ["moe-link"]
-
-  alpha-soul:
-    build:
-      context: ./alpha-soul
-    ports:
-      - "3083:3083"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - ./frontend/openapi:/app/openapi # 将 openapi 文件夹挂载到容器内的 /app/openapi
-    environment:
-      - CHOKIDAR_USEPOLLING=true
-    depends_on:
-      - backend
-    command: /bin/sh -c "npm run dev" # 运行 Orval 生成代码然后启动 Bun 开发服务器
-    profiles: ["moe-link"]
-
+  # Node.js API Server
   node-api:
-    build:
-      context: ./node-api
+    image: node:22-alpine
+    working_dir: /app
     ports:
-      - "3082:3082"
+      - "8020:8020"
     volumes:
-      - ./backend:/app
+      - ./repos/node-api:/app
       - /app/node_modules
-      - ./frontend/openapi:/app/openapi # 将 openapi 文件夹挂载到容器内的 /app/openapi
     depends_on:
-      - database
+      postgres:
+        condition: service_healthy
     environment:
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_HOST=database
-      - DB_PORT=5432
-      - DB_NAME=genshinquiz
+      - PORT=8020
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:3082/"]
+      test: ["CMD", "curl", "--fail", "http://localhost:8020/"]
       interval: 30s
       retries: 3
       timeout: 10s
       start_period: 5s
-    command: /bin/sh -c "npm install && node index.js"
+    command: /bin/sh -c "npm install && node app.js"
+    profiles: ["moe-link"]
+
+  moe-link:
+    build:
+      context: ./repos/moe-link
+    ports:
+      - "3080:3080"
+    volumes:
+      - ./repos/moe-link:/app
+      - /app/node_modules
+      - ./repos/moe-link/openapi:/app/openapi # 挂载 openapi 文件夹
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+    command: /bin/sh -c "npm run dev"
+    profiles: ["moe-link"]
+
+  vue-home:
+    build:
+      context: ./repos/vue-home
+    ports:
+      - "3081:3081"
+    volumes:
+      - ./repos/vue-home:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+    command: /bin/sh -c "npm run dev"
+    profiles: ["moe-link"]
+
+  alpha-soul:
+    build:
+      context: ./repos/AlphaSoul_Js
+    ports:
+      - "3082:3082"
+    volumes:
+      - ./repos/AlphaSoul_Js:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - node-api
+    command: /bin/sh -c "npm run dev"
     profiles: ["moe-link"]
 
   # PostgreSQL Database
   postgres:
     container_name: postgres
-    image: postgres:16.4
+    image: postgres:16.4-alpine
     restart: unless-stopped
     volumes:
       - postgres_data:/var/lib/postgresql/data

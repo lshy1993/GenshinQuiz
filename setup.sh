@@ -19,12 +19,13 @@ print_error() {
 }
 
 REPOS=(
-    "frontend:https://github.com/lshy1993/genshin-quiz-frontend.git"
+    "frontend:https://github.com/lshy1993/genshin-quiz.git"
     "backend:https://github.com/lshy1993/genshin-quiz-backend.git"
     "vue-home:https://github.com/lshy1993/vue-home.git"
     "MoeLink:https://github.com/lshy1993/MoeLink.git"
     "AlphaSoul_Js:https://github.com/lshy1993/AlphaSoul_Js.git"
     "node-api:https://github.com/lshy1993/node-api.git"
+    "liantui-hp:https://github.com/lshy1993/liantui-hp.git"
 )
 
 clone_or_update() {
@@ -49,11 +50,16 @@ clone_or_update() {
 main() {
     print_status "🚀 开始设置 GenshinQuiz 开发环境..."
     
+    # 确保 repos 目录存在
+    mkdir -p repos
+    cd repos
+    
     for repo in "${REPOS[@]}"; do
         IFS=':' read -r name url <<< "$repo"
         clone_or_update "$name" "$url"
     done
     
+    cd ..
     print_status "✅ 所有仓库设置完成！"
 }
 
