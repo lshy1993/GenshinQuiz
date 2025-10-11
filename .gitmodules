@@ -4,3 +4,15 @@
 [submodule "backend"]
 	path = backend
 	url = https://github.com/lshy1993/genshin-quiz-backend.git
+[submodule "vue-home"]
+	path = vue-home
+	url = https://github.com/lshy1993/vue-home.git
+[submodule "MoeLink"]
+	path = MoeLink
+	url = https://github.com/lshy1993/MoeLink.git
+[submodule "AlphaSoul_Js"]
+	path = AlphaSoul_Js
+	url = https://github.com/lshy1993/AlphaSoul_Js.git
+[submodule "node-api"]
+	path = node-api
+	url = https://github.com/lshy1993/node-api.git
