@@ -36,7 +36,28 @@ clone_or_update() {
         print_status "更新项目: $name"
         cd "$name"
         if [ -d ".git" ]; then
-            git pull origin main || git pull origin master
+            # 获取默认分支名称
+            default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+            if [ -z "$default_branch" ]; then
+                # 如果无法获取默认分支，尝试从远程获取
+                git remote set-head origin -a 2>/dev/null
+                default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+            fi
+            
+            # 如果还是无法获取，尝试常见的分支名称
+            if [ -z "$default_branch" ]; then
+                if git show-ref --verify --quiet refs/remotes/origin/main; then
+                    default_branch="main"
+                elif git show-ref --verify --quiet refs/remotes/origin/master; then
+                    default_branch="master"
+                else
+                    print_warning "无法确定 $name 的默认分支，尝试使用 main"
+                    default_branch="main"
+                fi
+            fi
+            
+            print_status "拉取 $name 的 $default_branch 分支"
+            git pull origin "$default_branch"
         else
             print_warning "$name 目录存在但不是 Git 仓库，跳过更新"
         fi
