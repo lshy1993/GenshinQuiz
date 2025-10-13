@@ -5,6 +5,9 @@ volumes:
   go_tools:
   go_bin:
   vite_deps:
+  node_modules_cache:
+  genshin_node_modules_cache:
+  moelink_node_modules_cache:
 
 services:
   # React with Vite and Bun
@@ -16,7 +19,7 @@ services:
       - "3000:3000"
     volumes:
       - ./repos/frontend:/app
-      - /app/node_modules
+      - genshin_node_modules_cache:/app/node_modules
       - ./repos/backend/openapi:/app/openapi # 挂载 openapi 文件夹
       - vite_deps:/app/node_modules/.vite # 挂载 Vite 依赖缓存
     environment:
@@ -87,7 +90,7 @@ services:
       - "8020:8020"
     volumes:
       - ./repos/node-api:/app
-      - /app/node_modules
+      - node_modules_cache:/app/node_modules
     depends_on:
       postgres:
         condition: service_healthy
@@ -103,49 +106,19 @@ services:
     profiles: ["moe-link"]
 
   moe-link:
-    build:
-      context: ./repos/moe-link
+    image: node:22-alpine
+    working_dir: /app
     ports:
-      - "3080:3080"
+      - "5173:5173"
     volumes:
-      - ./repos/moe-link:/app
-      - /app/node_modules
-      - ./repos/moe-link/openapi:/app/openapi # 挂载 openapi 文件夹
-    environment:
-      - CHOKIDAR_USEPOLLING=true
-    depends_on:
-      - backend
-    command: /bin/sh -c "npm run dev"
-    profiles: ["moe-link"]
-
-  vue-home:
-    build:
-      context: ./repos/vue-home
-    ports:
-      - "3081:3081"
-    volumes:
-      - ./repos/vue-home:/app
-      - /app/node_modules
-    environment:
-      - CHOKIDAR_USEPOLLING=true
-    depends_on:
-      - backend
-    command: /bin/sh -c "npm run dev"
-    profiles: ["moe-link"]
-
-  alpha-soul:
-    build:
-      context: ./repos/AlphaSoul_Js
-    ports:
-      - "3082:3082"
-    volumes:
-      - ./repos/AlphaSoul_Js:/app
-      - /app/node_modules
+      - ./repos/MoeLink:/app
+      - moelink_node_modules_cache:/app/node_modules
+      - ./repos/MoeLink/openapi:/app/openapi # 挂载 openapi 文件夹
     environment:
       - CHOKIDAR_USEPOLLING=true
     depends_on:
       - node-api
-    command: /bin/sh -c "npm run dev"
+    command: /bin/sh -c "npm install && npm run dev"
     profiles: ["moe-link"]
 
   # PostgreSQL Database
