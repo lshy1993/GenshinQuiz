@@ -12,6 +12,7 @@ volumes:
 services:
   # React with Vite and Bun
   genshinquiz-frontend:
+    container_name: genshinquiz-frontend
     build:
       context: ./repos/frontend
       dockerfile: Dockerfile
@@ -23,7 +24,7 @@ services:
       - ./repos/backend/openapi:/app/openapi # 挂载 openapi 文件夹
       - vite_deps:/app/node_modules/.vite # 挂载 Vite 依赖缓存
     environment:
-      VITE_API_URL: http://localhost:8080/api/v1
+      VITE_API_URL: http://host.docker.internal:8080
       CHOKIDAR_USEPOLLING: true
     depends_on:
       - genshinquiz-backend
@@ -32,15 +33,11 @@ services:
 
   # Go Backend API
   genshinquiz-backend:
+    container_name: genshinquiz-backend
     image: golang:1.25
     restart: unless-stopped
     ports:
       - "8080:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     working_dir: /app
     environment:
       GOBIN: /app/bin
@@ -50,6 +47,11 @@ services:
       - ./repos/backend:/app
       - go_mods:/go/pkg/mod
       - go_bin:/app/bin
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     entrypoint:
       - /bin/sh
       - -c
@@ -84,6 +86,7 @@ services:
 
   # Node.js API Server
   node-api:
+    container_name: node-api
     image: node:22-alpine
     working_dir: /app
     ports:
@@ -97,7 +100,7 @@ services:
     environment:
       - PORT=8020
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8020/"]
+      test: ["CMD", "curl", "--fail", "http://localhost:8020/health"]
       interval: 30s
       retries: 3
       timeout: 10s
@@ -106,6 +109,7 @@ services:
     profiles: ["moe-link"]
 
   moe-link:
+    container_name: moe-link
     image: node:22-alpine
     working_dir: /app
     ports:
@@ -115,7 +119,8 @@ services:
       - moelink_node_modules_cache:/app/node_modules
       - ./repos/MoeLink/openapi:/app/openapi # 挂载 openapi 文件夹
     environment:
-      - CHOKIDAR_USEPOLLING=true
+      VITE_API_URL: http://host.docker.internal:8020
+      CHOKIDAR_USEPOLLING: true
     depends_on:
       - node-api
     command: /bin/sh -c "npm install && npm run dev"
