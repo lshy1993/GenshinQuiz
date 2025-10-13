@@ -24,7 +24,7 @@ services:
       - ./repos/backend/openapi:/app/openapi # 挂载 openapi 文件夹
       - vite_deps:/app/node_modules/.vite # 挂载 Vite 依赖缓存
     environment:
-      VITE_API_URL: http://host.docker.internal:8080
+      VITE_API_URL: http://genshinquiz-backend:8080
       CHOKIDAR_USEPOLLING: true
     depends_on:
       - genshinquiz-backend
