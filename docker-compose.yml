@@ -21,7 +21,6 @@ services:
     volumes:
       - ./repos/frontend:/app
       - genshin_node_modules_cache:/app/node_modules
-      - ./repos/backend/openapi:/app/openapi # 挂载 openapi 文件夹
       - vite_deps:/app/node_modules/.vite # 挂载 Vite 依赖缓存
     environment:
       VITE_API_URL: http://genshinquiz-backend:8080
@@ -106,7 +105,7 @@ services:
       timeout: 10s
       start_period: 5s
     command: /bin/sh -c "npm install && node app.js"
-    profiles: ["moe-link"]
+    profiles: ["moelink"]
 
   moe-link:
     container_name: moe-link
@@ -124,9 +123,8 @@ services:
     depends_on:
       - node-api
     command: /bin/sh -c "npm install && npm run dev"
-    profiles: ["moe-link"]
+    profiles: ["moelink"]
 
-  # PostgreSQL Database
   postgres:
     container_name: postgres
     image: postgres:16.4-alpine
@@ -145,9 +143,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    profiles: ["genshinquiz", "moe-link"]
+    profiles: ["genshinquiz", "moelink"]
 
-  # Redis Cache and Queue
   redis:
     container_name: redis
     image: redis:7.2-alpine
@@ -162,4 +159,4 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    profiles: ["genshinquiz", "moe-link"]
+    profiles: ["genshinquiz", "moelink"]
